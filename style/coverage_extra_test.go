@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/overrides"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/overrides"
 )
 
 func TestFilterIssuesNilAndMatcher(t *testing.T) {

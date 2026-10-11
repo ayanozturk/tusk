@@ -47,7 +47,7 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/ayanozturk/go-php-parser/command"
+	"github.com/ayanozturk/tusk/command"
 	"os"
 	"path/filepath"
 )

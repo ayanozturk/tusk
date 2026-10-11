@@ -15,10 +15,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ayanozturk/go-php-parser/analyse"
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/diag"
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/analyse"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/diag"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 const reportSchemaVersion = 1

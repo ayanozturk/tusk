@@ -13,7 +13,7 @@ TARGET_DIR=${BENCHMARK_TARGET:-test_projects}
 
 # Build binary
 echo "Building..."
-go build -o php-parser ./main.go
+go build -o tusk ./main.go
 
 echo "Running benchmark ($MODE) against $TARGET_DIR..."
 
@@ -26,7 +26,7 @@ if [[ "$MODE" == "cold" || "$MODE" == "both" ]]; then
 	rm -rf ~/.cache/tusk
 	START=$(date +%s.%N)
 	echo "  Analyzing..." >&2
-	./php-parser 2>&1 | tail -5
+	./tusk 2>&1 | tail -5
 	END=$(date +%s.%N)
 	COLD_TIME=$(echo "$END - $START" | bc)
 	echo "✓ Cold time: ${COLD_TIME}s"
@@ -38,7 +38,7 @@ if [[ "$MODE" == "warm" || "$MODE" == "both" ]]; then
 	echo "Warm run (with cache)..."
 	START=$(date +%s.%N)
 	echo "  Analyzing (cache enabled)..." >&2
-	./php-parser 2>&1 | tail -5
+	./tusk 2>&1 | tail -5
 	END=$(date +%s.%N)
 	WARM_TIME=$(echo "$END - $START" | bc)
 	echo "✓ Warm time: ${WARM_TIME}s"

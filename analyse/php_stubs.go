@@ -4,9 +4,9 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/phpstubs"
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/phpstubs"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 var parsedPHPStubs sync.Map // version -> map[string][]ast.Node

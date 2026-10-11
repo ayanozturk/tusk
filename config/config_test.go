@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/overrides"
+	"github.com/ayanozturk/tusk/overrides"
 )
 
 func TestLoadConfig_Success(t *testing.T) {

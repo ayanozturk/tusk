@@ -1,7 +1,7 @@
 package analyse
 
 import (
-	"github.com/ayanozturk/go-php-parser/ast"
+	"github.com/ayanozturk/tusk/ast"
 )
 
 const (

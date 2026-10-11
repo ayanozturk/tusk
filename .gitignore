@@ -23,7 +23,7 @@ cpu.out
 # Benchmark JSON is generated evidence. Keep durable conclusions in Markdown
 # and publish raw reports as CI/run artifacts rather than committing them.
 /docs/benchmarks/*wordpress*.json
-php-parser
+tusk
 cover.out
 config.yaml.bak
 

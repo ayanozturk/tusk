@@ -5,8 +5,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/token"
 )
 
 var redNodePool = sync.Pool{New: func() any { return new(RedNode) }}

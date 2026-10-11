@@ -3,7 +3,7 @@ package analyse
 import (
 	"fmt"
 
-	"github.com/ayanozturk/go-php-parser/ast"
+	"github.com/ayanozturk/tusk/ast"
 )
 
 func checkUndefinedVariables(filename string, nodes []ast.Node, ctx *AnalysisContext) []AnalysisIssue {

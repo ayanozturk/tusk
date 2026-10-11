@@ -1,6 +1,6 @@
 package style
 
-import "github.com/ayanozturk/go-php-parser/diag"
+import "github.com/ayanozturk/tusk/diag"
 
 type IssueType string
 

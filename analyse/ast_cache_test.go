@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/ast"
+	"github.com/ayanozturk/tusk/ast"
 )
 
 func TestASTCacheStoreLoadRoundTrip(t *testing.T) {

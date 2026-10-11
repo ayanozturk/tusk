@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/syntax"
-	"github.com/ayanozturk/go-php-parser/syntax/lower"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/syntax"
+	"github.com/ayanozturk/tusk/syntax/lower"
 )
 
 const fixtureUser = `<?php

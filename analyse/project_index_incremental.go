@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/phpstubs"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/phpstubs"
 )
 
 // BuildProjectIndexIncremental returns a new immutable project index after

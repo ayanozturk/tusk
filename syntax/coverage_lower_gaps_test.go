@@ -3,8 +3,8 @@ package syntax
 import (
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/lexer"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/lexer"
 )
 
 func TestLowerRemainingExprAndStmtHelpers(t *testing.T) {

@@ -3,7 +3,7 @@ package analyse
 import (
 	"strings"
 
-	"github.com/ayanozturk/go-php-parser/ast"
+	"github.com/ayanozturk/tusk/ast"
 )
 
 func applyForeachIterationTypes(scope *functionScope, node *ast.ForeachNode, ctx *AnalysisContext, filename string) {

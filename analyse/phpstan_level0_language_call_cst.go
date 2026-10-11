@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 // appendLanguageCallIssuesFromCST is the CST-native analogue of

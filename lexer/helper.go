@@ -1,7 +1,7 @@
 package lexer
 
 import (
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/token"
 	"unicode/utf8"
 )
 

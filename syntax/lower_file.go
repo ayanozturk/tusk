@@ -1,7 +1,7 @@
 package syntax
 
 import (
-	"github.com/ayanozturk/go-php-parser/ast"
+	"github.com/ayanozturk/tusk/ast"
 )
 
 // LowerFile lowers KindFile children to top-level classic AST nodes.

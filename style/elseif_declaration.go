@@ -2,7 +2,7 @@ package style
 
 import (
 	"fmt"
-	"github.com/ayanozturk/go-php-parser/ast"
+	"github.com/ayanozturk/tusk/ast"
 	"regexp"
 	"strings"
 )

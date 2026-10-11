@@ -1,8 +1,8 @@
 package style
 
 import (
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/style/helper"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/style/helper"
 )
 
 // StyleChecker interface is defined in style_checker.go

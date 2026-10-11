@@ -22,8 +22,8 @@ The analyzer is under active development; see [plan.MD](plan.MD) for the current
 Building from source requires Go 1.23 or newer. GNU Make is needed for the `make build` command.
 
 ```bash
-git clone https://github.com/ayanozturk/go-php-parser.git
-cd go-php-parser
+git clone https://github.com/ayanozturk/tusk.git
+cd tusk
 go mod download
 make build
 ```
@@ -306,8 +306,8 @@ package main
 import (
     "fmt"
 
-    "github.com/ayanozturk/go-php-parser/printer"
-    "github.com/ayanozturk/go-php-parser/syntax"
+    "github.com/ayanozturk/tusk/printer"
+    "github.com/ayanozturk/tusk/syntax"
 )
 
 func main() {

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 const maxAnalysisFuzzBytes = 32 << 10

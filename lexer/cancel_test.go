@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/token"
 )
 
 // nthErrCancel returns context.Canceled after n successful Err() calls.

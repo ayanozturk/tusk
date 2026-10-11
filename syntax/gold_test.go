@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/token"
 )
 
 // dumpGoldTree is a test-only structured tree dump (kinds + significant token

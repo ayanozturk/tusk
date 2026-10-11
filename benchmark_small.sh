@@ -9,7 +9,7 @@ set -e
 TARGET_DIR=${BENCHMARK_TARGET:-test_projects}
 
 echo "Building..."
-go build -o php-parser ./main.go
+go build -o tusk ./main.go
 
 # Pick a smaller subset: first 1000 PHP files
 echo "Finding files..."
@@ -31,7 +31,7 @@ echo ""
 echo "=== COLD RUN ==="
 rm -rf ~/.cache/tusk
 START=$(date +%s%N)
-./php-parser -config /dev/null "$SAMPLE_DIR" 2>&1 | grep -E "scanning|scanned|errors|HeapAlloc|Sys" | head -10
+./tusk -config /dev/null "$SAMPLE_DIR" 2>&1 | grep -E "scanning|scanned|errors|HeapAlloc|Sys" | head -10
 END=$(date +%s%N)
 COLD_MS=$(( (END - START) / 1000000 ))
 echo "Cold: ${COLD_MS}ms"
@@ -39,7 +39,7 @@ echo "Cold: ${COLD_MS}ms"
 echo ""
 echo "=== WARM RUN ==="
 START=$(date +%s%N)
-./php-parser -config /dev/null "$SAMPLE_DIR" 2>&1 | grep -E "scanning|scanned|errors|HeapAlloc|Sys" | head -10
+./tusk -config /dev/null "$SAMPLE_DIR" 2>&1 | grep -E "scanning|scanned|errors|HeapAlloc|Sys" | head -10
 END=$(date +%s%N)
 WARM_MS=$(( (END - START) / 1000000 ))
 echo "Warm: ${WARM_MS}ms"

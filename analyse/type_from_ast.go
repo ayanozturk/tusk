@@ -3,7 +3,7 @@ package analyse
 import (
 	"strings"
 
-	"github.com/ayanozturk/go-php-parser/ast"
+	"github.com/ayanozturk/tusk/ast"
 )
 
 // TypeFromAST builds analyse.Type from a structured AST type node.

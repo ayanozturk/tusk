@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/token"
 )
 
 // Microbench for plain double-quoted string lexing cost vs single-quoted

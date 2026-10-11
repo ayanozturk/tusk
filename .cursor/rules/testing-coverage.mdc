@@ -35,4 +35,4 @@ Do **not** chase a single line-% on the whole repo. Use layered targets.
 - New `syntax` / trivia / binder packages: **≥95%** (or 100% if critical-unit-testing bar applies to those packages only).
 - Whole-module line coverage: **non-goal** during cutover; round-trip + gold + analyse suite are the merge bar.
 
-**Summary:** 100% on the identity/gold contract, very high on the new kernel, corpus/analyse green for integration — not “100% of go-php-parser.”
+**Summary:** 100% on the identity/gold contract, very high on the new kernel, corpus/analyse green for integration — not “100% of tusk.”

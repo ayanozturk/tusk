@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/ayanozturk/go-php-parser/overrides"
+	"github.com/ayanozturk/tusk/overrides"
 
 	"gopkg.in/yaml.v2"
 )

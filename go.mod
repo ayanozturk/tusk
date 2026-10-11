@@ -1,4 +1,4 @@
-module github.com/ayanozturk/go-php-parser
+module github.com/ayanozturk/tusk
 
 go 1.23
 

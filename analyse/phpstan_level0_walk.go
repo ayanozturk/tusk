@@ -1,6 +1,6 @@
 package analyse
 
-import "github.com/ayanozturk/go-php-parser/ast"
+import "github.com/ayanozturk/tusk/ast"
 
 type walkAllConfig struct {
 	collectContext bool

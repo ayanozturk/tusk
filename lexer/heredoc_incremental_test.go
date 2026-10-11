@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/token"
 )
 
 // TestInterpolatedHeredocDoesNotEagerQueueBody asserts that returning

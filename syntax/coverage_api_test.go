@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/token"
 )
 
 func TestParseInvocationCount(t *testing.T) {

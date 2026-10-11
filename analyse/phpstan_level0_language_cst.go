@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 // languageCSTGoto holds a goto target collected without LowerStmtNode.

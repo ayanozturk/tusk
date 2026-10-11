@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ayanozturk/go-php-parser/ast"
+	"github.com/ayanozturk/tusk/ast"
 )
 
 // VariableDefinedness is the joined state of a variable at one read.

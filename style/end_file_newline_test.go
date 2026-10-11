@@ -3,7 +3,7 @@ package style
 import (
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/diag"
+	"github.com/ayanozturk/tusk/diag"
 )
 
 func TestEndFileNewlineChecker(t *testing.T) {

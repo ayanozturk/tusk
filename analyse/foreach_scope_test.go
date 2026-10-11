@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/ast"
+	"github.com/ayanozturk/tusk/ast"
 )
 
 func TestIterableTypesFromGenericListAndArray(t *testing.T) {

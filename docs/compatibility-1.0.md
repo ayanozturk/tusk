@@ -18,8 +18,8 @@ release checklist.
   successful cross-build does not claim native runtime validation for every
   target.
 
-The Go module path remains `github.com/ayanozturk/go-php-parser` for Go imports
-and existing PHP Strom integrations. The user-facing executable is `tusk` (or
+The Go module path is `github.com/ayanozturk/tusk` for Go imports
+and PHP Strom integration. The user-facing executable is `tusk` (or
 `tusk.exe` on Windows); automatic config discovery uses `tusk.yaml`.
 
 ## PHP syntax scope
@@ -47,10 +47,12 @@ The supported library API consists of exported identifiers in these packages:
 The `cmd/...`, `command`, `helper`, `phpstubs`, `syntax/lower`, and `utils` packages are
 implementation or developer-tool packages; their exported identifiers are not
 covered by the 1.0 compatibility promise. The module path above is stable for
-1.x. During 1.x, changes to the supported API preserve source compatibility;
-breaking API or module-path changes require a new major version. Additions and
-bug fixes remain possible. Diagnostic behavior changes are governed by the
-diagnostic contract below.
+1.x. The repository and module were renamed from `go-php-parser` before the 1.0
+release; downstream Go callers must update imports to `github.com/ayanozturk/tusk`.
+During 1.x, changes to the supported API preserve source compatibility; breaking
+API or module-path changes require a new major version. Additions and bug fixes
+remain possible. Diagnostic behavior changes are governed by the diagnostic
+contract below.
 
 The release candidate adds `analyse.ResolvedParam.CallableReturnType` for
 PHPDoc callable-return metadata used by generic function inference. Existing

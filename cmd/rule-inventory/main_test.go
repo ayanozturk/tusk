@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/analyse"
-	"github.com/ayanozturk/go-php-parser/style"
+	"github.com/ayanozturk/tusk/analyse"
+	"github.com/ayanozturk/tusk/style"
 )
 
 func TestReadmeRuleLevelTableMatchesRegistry(t *testing.T) {

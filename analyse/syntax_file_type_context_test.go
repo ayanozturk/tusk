@@ -5,7 +5,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 // TestCollectFileTypeContextFromSyntaxMatchesASTPath is the Phase 2 parity

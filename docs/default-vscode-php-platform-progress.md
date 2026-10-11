@@ -2,13 +2,13 @@
 
 Last updated: 2026-09-01 (Europe/London)
 
-This file records reproducible evidence for the cooperating `go-php-parser` engine and `vscode-php-strom` extension. PHPStan, PHPCS, and Mago are benchmark references only; no parity claim is made.
+This file records reproducible evidence for the cooperating `tusk` engine and `vscode-php-strom` extension. PHPStan, PHPCS, and Mago are benchmark references only; no parity claim is made.
 
 ## Current baseline
 
 - Engine revision validated and consumed by PHP Strom: pushed commit `4692a16`.
 - Extension checkout: `/Users/ayan/Projects/vscode-php-strom`, `main` at pushed commit `bc94e81`; the current package version is `0.1.34`.
-- Production extension builds pin `github.com/ayanozturk/go-php-parser` at pseudo-version `v0.0.0-20260901195704-4692a1696ef1`. `make test-server-dev` validates the same engine through the generated, ignored sibling-workspace path.
+- Production extension builds pin `github.com/ayanozturk/tusk` at pseudo-version `v0.0.0-20260901195704-4692a1696ef1`. `make test-server-dev` validates the same engine through the generated, ignored sibling-workspace path.
 - Go toolchain observed: Go 1.27.0. Node toolchain observed: Node 26.8.1 and npm 11.19.0.
 - Representative corpora are fetched at exact revisions from `test_projects/manifest.json`; generated working copies remain uncommitted.
 - The latest recorded full-corpus pass has zero failures for Composer, Drupal, Magento, PHPUnit, and WordPress. Symfony's two remaining fixtures are intentionally invalid/corrupted inputs, and Laravel has two narrow interpolation/callable edge cases. These recorded results are compatibility evidence, not a current performance result.
@@ -31,7 +31,7 @@ Command:
 
 ```sh
 cd /Users/ayan/Projects/vscode-php-strom/server
-GOWORK=off go run ./cmd/benchmark-indexer /Users/ayan/Projects/go-php-parser/test_projects
+GOWORK=off go run ./cmd/benchmark-indexer /Users/ayan/Projects/tusk/test_projects
 ```
 
 Representative workload: 23,556 indexed PHP files, 3,678,678 LOC, 135.68 MB, 151,253 symbols, four workers, function bodies skipped, Composer/vendor paths excluded by the benchmark config.
@@ -46,7 +46,7 @@ Representative workload: 23,556 indexed PHP files, 3,678,678 LOC, 135.68 MB, 151
 
 ## Maintainability and architecture risks
 
-- `FEATURES.md` still contains leftover TypeScript/tree-sitter feature prose, but the architecture overview now states that production is the Go language server and `go-php-parser`. A full specification rewrite remains a ranked maintenance item.
+- `FEATURES.md` still contains leftover TypeScript/tree-sitter feature prose, but the architecture overview now states that production is the Go language server and `tusk`. A full specification rewrite remains a ranked maintenance item.
 - The obsolete `src/server` TypeScript implementation is excluded from both the production TypeScript build and ESLint; retaining dead server code remains an architecture/deletion decision requiring separate evidence.
 - Parser AST nodes and structured analysis issues expose complete spans, and PHP Strom now converts their one-based rune coordinates against the exact source text into half-open UTF-16 LSP ranges. Parser errors still expose an unstructured string API, and style-rule coordinates come from mixed legacy producers, so those diagnostics retain point ranges pending a separate coordinate-contract migration.
 
@@ -70,7 +70,7 @@ Representative workload: 23,556 indexed PHP files, 3,678,678 LOC, 135.68 MB, 151
 - `GOWORK=off go test ./...`: pass.
 - `GOWORK=off go vet ./...`: pass.
 - `make test-server-dev`: pass against the sibling engine checkout.
-- `go test ./...`, `go vet ./...`, and `go test -race ./...` in `go-php-parser`: pass.
+- `go test ./...`, `go vet ./...`, and `go test -race ./...` in `tusk`: pass.
 - `npm run compile`: pass.
 - `npm run package`: pass with the known `vscode-languageserver-types` dynamic-require warning.
 - Six local-parser cross-builds (`darwin/linux/windows` x `arm64/amd64`) to a temporary directory: pass.

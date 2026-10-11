@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ayanozturk/go-php-parser/ast"
+	"github.com/ayanozturk/tusk/ast"
 )
 
 // retainHostASTFromEnv reports whether PHP_PARSER_RETAIN_HOST_AST requests

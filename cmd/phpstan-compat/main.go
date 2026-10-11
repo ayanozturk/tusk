@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ayanozturk/go-php-parser/command"
+	"github.com/ayanozturk/tusk/command"
 )
 
 const schemaVersion = 1
@@ -244,7 +244,7 @@ func run(root string, reportPaths, indexPaths []string, levelsText, phpstanBin, 
 }
 
 func runEngine(root string, indexed, reportable []string, level, workers int) ([]diagnostic, command.AnalyzeResult, error) {
-	cacheDir, err := os.MkdirTemp("", "go-php-parser-compat-cache-")
+	cacheDir, err := os.MkdirTemp("", "tusk-compat-cache-")
 	if err != nil {
 		return nil, command.AnalyzeResult{}, fmt.Errorf("create temporary cache: %w", err)
 	}

@@ -3,7 +3,7 @@ package analyse
 import (
 	"fmt"
 
-	"github.com/ayanozturk/go-php-parser/ast"
+	"github.com/ayanozturk/tusk/ast"
 )
 
 const level3ThrowTypeCode = "Level3.ThrowType"

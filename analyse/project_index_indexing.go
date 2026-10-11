@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ayanozturk/go-php-parser/ast"
+	"github.com/ayanozturk/tusk/ast"
 )
 
 func (idx *ProjectIndex) indexNodes(filename string, nodes []ast.Node, ft FileTypeContext, currentClass string) {

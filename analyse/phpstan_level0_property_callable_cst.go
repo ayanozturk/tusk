@@ -3,7 +3,7 @@ package analyse
 import (
 	"fmt"
 
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 // appendPropertyCallableTypeIssueFromCST is the CST-native analogue of

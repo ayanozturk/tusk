@@ -3,9 +3,9 @@ package syntax
 import (
 	"strings"
 
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/diag"
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/diag"
+	"github.com/ayanozturk/tusk/token"
 )
 
 // Diagnostic is a structured parse/analysis error with a source span.

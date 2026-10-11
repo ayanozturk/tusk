@@ -1,7 +1,7 @@
 package analyse
 
 import (
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 // IndexSyntaxFileForReferences binds a full syntax ParseResult into g for

@@ -1,6 +1,6 @@
-# go-php-parser roadmap
+# Tusk roadmap
 
-This is the single source of truth for future work in `go-php-parser`. The item currently being implemented lives in `plan.MD` and is not duplicated here as an execution checklist. Detailed capability inventories, rule documentation, architecture constraints, and benchmark results live under `docs/` and in `AGENTS.md`.
+This is the single source of truth for future work in `tusk`. The item currently being implemented lives in `plan.MD` and is not duplicated here as an execution checklist. Detailed capability inventories, rule documentation, architecture constraints, and benchmark results live under `docs/` and in `AGENTS.md`.
 
 ## Short term
 

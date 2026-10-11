@@ -3,8 +3,8 @@ package analyse
 import (
 	"strings"
 
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 // GenericInstance represents a concrete instantiation of a generic class.

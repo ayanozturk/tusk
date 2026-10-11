@@ -16,9 +16,9 @@ This record closes step 1 of `plan.MD`: capture the exact lossless-syntax baseli
 
 ```text
 GOWORK=off go test ./syntax ./lexer ./analyse -count=1
-ok github.com/ayanozturk/go-php-parser/syntax  1.254s
-ok github.com/ayanozturk/go-php-parser/lexer   2.712s
-ok github.com/ayanozturk/go-php-parser/analyse 5.954s
+ok github.com/ayanozturk/tusk/syntax  1.254s
+ok github.com/ayanozturk/tusk/lexer   2.712s
+ok github.com/ayanozturk/tusk/analyse 5.954s
 ```
 
 ## Corpus metrics
@@ -37,8 +37,8 @@ GOWORK=off go run ./cmd/syntax-metrics --root "$PWD/test_projects/wordpress-deve
 
 The raw JSON reports are retained outside the repository at:
 
-- `/tmp/go-php-parser-syntax-metrics-symfony-1cf69b07.json`
-- `/tmp/go-php-parser-syntax-metrics-wordpress-1cf69b07.json`
+- `/tmp/tusk-syntax-metrics-symfony-1cf69b07.json`
+- `/tmp/tusk-syntax-metrics-wordpress-1cf69b07.json`
 
 ## Interpretation
 
@@ -50,10 +50,10 @@ The explicit corpus identity tests were run after the metrics capture with absol
 
 ```text
 SYNTAX_CORPUS_DIR="$PWD/test_projects/symfony" GOWORK=off go test ./syntax -run TestSyntaxCorpusIdentityGate -count=1 -timeout 30m
-ok github.com/ayanozturk/go-php-parser/syntax  6.588s
+ok github.com/ayanozturk/tusk/syntax  6.588s
 
 SYNTAX_CORPUS_DIR="$PWD/test_projects/wordpress-develop" GOWORK=off go test ./syntax -run TestSyntaxCorpusIdentityGate -count=1 -timeout 30m
-ok github.com/ayanozturk/go-php-parser/syntax  4.693s
+ok github.com/ayanozturk/tusk/syntax  4.693s
 ```
 
 Both gates passed without exposing an identity or recovery failure. The conditional failure-reduction steps in `plan.MD` were therefore not exercised and are not recorded as completed work.

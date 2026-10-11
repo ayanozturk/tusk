@@ -1,6 +1,6 @@
 package analyse
 
-import "github.com/ayanozturk/go-php-parser/overrides"
+import "github.com/ayanozturk/tusk/overrides"
 
 func FilterIssues(issues []AnalysisIssue, matcher *overrides.Compiled) []AnalysisIssue {
 	if matcher == nil {

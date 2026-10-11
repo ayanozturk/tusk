@@ -3,8 +3,8 @@ package syntax
 import (
 	"strings"
 
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/token"
 )
 
 func isGreenTokenType(g *GreenNode, tt token.TokenType) bool {

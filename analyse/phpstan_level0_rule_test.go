@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 func parsePHPForLevel0(t *testing.T, php string) []ast.Node {

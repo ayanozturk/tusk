@@ -1,8 +1,8 @@
 package analyse
 
 import (
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 const emptyStatementCode = "Generic.CodeAnalysis.EmptyStatement"

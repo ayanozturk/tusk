@@ -1,6 +1,6 @@
 package analyse
 
-import "github.com/ayanozturk/go-php-parser/syntax"
+import "github.com/ayanozturk/tusk/syntax"
 
 // sharedParseResult returns the CST for this analysis file, parsing at most
 // once per AnalysisContext. Prefer ctx.Parsed when already set; otherwise

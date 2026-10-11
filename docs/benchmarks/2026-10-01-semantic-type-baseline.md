@@ -27,14 +27,14 @@ not comparative performance claims.
 - Cold protocol: 1 unmeasured validation, 1 cold warmup, 10 measured process-cold
   full-analysis runs, 250 ms settling delay, no extra runs, warm loop skipped.
 - Benchmark command for each root:
-  `go run ./cmd/benchmark --root test_projects/<name> --cold-runs 10 --extra-cold-runs 0 --skip-warm --workers 4 --json --output /tmp/go-php-parser-<name>-benchmark-current.json`.
+  `go run ./cmd/benchmark --root test_projects/<name> --cold-runs 10 --extra-cold-runs 0 --skip-warm --workers 4 --json --output /tmp/tusk-<name>-benchmark-current.json`.
 - Symfony's accepted command adds
   `--expected-parse-errors src/Symfony/Component/Config/Tests/Fixtures/ParseError.php`.
   The expected-path list is matched exactly against parser-error paths; any
   read error, missing expected error, or additional parser error rejects the
   run. Per-run paths are included in JSON.
 - Snapshot command for each root:
-  `go run ./cmd/analysis-corpus-snapshot --root test_projects/<name> --workers 4 --output /tmp/go-php-parser-<name>-current.json`.
+  `go run ./cmd/analysis-corpus-snapshot --root test_projects/<name> --workers 4 --output /tmp/tusk-<name>-current.json`.
 - Focused checks:
   `GOWORK=off go test ./...`;
   engine-only differential packs for levels 3, 5, and 7;

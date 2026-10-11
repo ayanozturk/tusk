@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/token"
 )
 
 // Kind identifies a green/red syntax node.

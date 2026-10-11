@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/token"
 )
 
 // lowerStmtAt lowers one statement child from green+offset without bindChild.

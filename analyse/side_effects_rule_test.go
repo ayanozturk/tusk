@@ -3,7 +3,7 @@ package analyse
 import (
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 func TestSideEffectsOnlyDeclarations(t *testing.T) {

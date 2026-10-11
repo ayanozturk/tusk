@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ayanozturk/go-php-parser/lexer"
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/lexer"
+	"github.com/ayanozturk/tusk/token"
 )
 
 // Parser builds green trees from a Zend-faithful token stream.

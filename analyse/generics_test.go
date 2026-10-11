@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 func parseGenericsPHP(t *testing.T, source string) []AnalysisIssue {

@@ -24,6 +24,12 @@ Scope: stabilize the parser, analyser, CLI, and PHP Strom integration for a 1.0 
 - Tusk is the only user-facing binary and config name: `make build` emits `tusk`/`tusk.exe`, and automatic config discovery accepts only `tusk.yaml`. The README, source-run examples, command names, output source, and integration comments now use Tusk consistently. `go test ./...`, `go vet ./...`, native/Windows builds, and representative CLI flows pass.
 - Preserve lossless parsing, deterministic diagnostics, file accounting, public compatibility, and existing rule semantics. Every behavior fix needs a regression case and current rule documentation where applicable.
 
+## Cross-repository rename
+
+- [ ] Rename the GitHub repository and canonical Go module to
+  `github.com/ayanozturk/tusk`; update parser and PHP Strom imports, dependency
+  pin, local development paths, repository links, and documentation.
+
 ## Current diagnostic-quality work
 
 - [x] Bind named-function direct templates and supported callable returns.

@@ -5,8 +5,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/ayanozturk/go-php-parser/syntax"
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/syntax"
+	"github.com/ayanozturk/tusk/token"
 )
 
 var (

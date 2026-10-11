@@ -2,8 +2,8 @@
 package style
 
 import (
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/sharedcache"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/sharedcache"
 	"sort"
 	"strings"
 	"sync"

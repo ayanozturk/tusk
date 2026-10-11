@@ -3,8 +3,8 @@ package analyse
 import (
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 // helper to run analysis on a PHP snippet and return issues

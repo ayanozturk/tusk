@@ -1,6 +1,6 @@
 package analyse
 
-import "github.com/ayanozturk/go-php-parser/syntax"
+import "github.com/ayanozturk/tusk/syntax"
 
 // syntaxChildRef is a green child descriptor with its absolute source offset
 // (same shape as syntax's internal redChildDesc). Used to walk children

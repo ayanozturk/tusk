@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/config"
-	"github.com/ayanozturk/go-php-parser/overrides"
+	"github.com/ayanozturk/tusk/config"
+	"github.com/ayanozturk/tusk/overrides"
 )
 
 func TestParseCLIArgsDefaults(t *testing.T) {

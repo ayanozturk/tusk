@@ -3,7 +3,7 @@ package syntax
 import (
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/token"
 )
 
 func TestMaterializeTriviaLiteralsSkipsNoopCopy(t *testing.T) {

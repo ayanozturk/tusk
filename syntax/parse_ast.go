@@ -3,7 +3,7 @@ package syntax
 import (
 	"context"
 
-	"github.com/ayanozturk/go-php-parser/ast"
+	"github.com/ayanozturk/tusk/ast"
 )
 
 // ParseASTForIndex parses with SkipFunctionBodies and lowers declarations to classic AST.

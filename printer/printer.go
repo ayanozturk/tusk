@@ -2,7 +2,7 @@ package printer
 
 import (
 	"fmt"
-	"github.com/ayanozturk/go-php-parser/ast"
+	"github.com/ayanozturk/tusk/ast"
 	"io"
 	"os"
 	"strings"

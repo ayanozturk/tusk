@@ -6,7 +6,7 @@
   "rejectionReasons": [
     "PSL validation found 65 parser failures in 3361 selected PHP files",
     "Magento validation found 15 parser failures in 41848 selected PHP files",
-    "WordPress go-php-parser coefficient of variation was 0.069046, above the 0.05 target",
+    "WordPress tusk coefficient of variation was 0.069046, above the 0.05 target",
     "WordPress Mago coefficient of variation was 0.051055, above the 0.05 target",
     "Mago count output did not expose analysed-file accounting",
     "The tools do not yet perform comparable semantic work"
@@ -23,7 +23,7 @@
       "RUST_LOG": "warn"
     },
     "cacheState": "process-cold, operating-system file cache warm",
-    "interleaving": "go-php-parser then Mago for each of ten measured pairs"
+    "interleaving": "tusk then Mago for each of ten measured pairs"
   },
   "tools": {
     "goPhpParser": {

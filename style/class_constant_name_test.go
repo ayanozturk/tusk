@@ -3,7 +3,7 @@ package style
 import (
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 func TestClassConstantValidNames(t *testing.T) {

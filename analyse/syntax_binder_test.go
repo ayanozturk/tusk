@@ -5,7 +5,7 @@ import (
 	"testing"
 	"unicode/utf16"
 
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 func TestBinderTypeFromSyntax(t *testing.T) {

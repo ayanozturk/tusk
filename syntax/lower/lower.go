@@ -5,8 +5,8 @@
 package lower
 
 import (
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 // File lowers the red file root to classic []ast.Node. Implementation lives in

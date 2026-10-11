@@ -1,7 +1,7 @@
 package analyse
 
 import (
-	"github.com/ayanozturk/go-php-parser/ast"
+	"github.com/ayanozturk/tusk/ast"
 )
 
 // ensureSharedFileDiagnosticsFromCST is the CST-direct analogue of the

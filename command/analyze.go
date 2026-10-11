@@ -8,13 +8,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ayanozturk/go-php-parser/analyse"
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/diag"
-	"github.com/ayanozturk/go-php-parser/overrides"
-	"github.com/ayanozturk/go-php-parser/sharedcache"
-	"github.com/ayanozturk/go-php-parser/syntax"
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/analyse"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/diag"
+	"github.com/ayanozturk/tusk/overrides"
+	"github.com/ayanozturk/tusk/sharedcache"
+	"github.com/ayanozturk/tusk/syntax"
+	"github.com/ayanozturk/tusk/token"
 )
 
 // AnalyzeResult accounts for every file selected by the standalone analyzer.

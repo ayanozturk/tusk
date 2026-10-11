@@ -1,6 +1,6 @@
 package syntax
 
-import "github.com/ayanozturk/go-php-parser/token"
+import "github.com/ayanozturk/tusk/token"
 
 // ContentSpanOffsets returns half-open byte offsets matching nodePos content start/end.
 func ContentSpanOffsets(n *RedNode, file *File) (start, end int) {

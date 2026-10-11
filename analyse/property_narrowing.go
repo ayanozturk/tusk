@@ -1,6 +1,6 @@
 package analyse
 
-import "github.com/ayanozturk/go-php-parser/ast"
+import "github.com/ayanozturk/tusk/ast"
 
 // applyThisPropertyConditionScope refines direct properties of the current
 // receiver and of a named foreign variable. A property on another object must

@@ -3,7 +3,7 @@ package ast
 import (
 	"strings"
 
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/token"
 )
 
 // Modifier mirrors one entry in syntax.KindModifierList: a keyword token, or an

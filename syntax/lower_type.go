@@ -3,7 +3,7 @@ package syntax
 import (
 	"strings"
 
-	"github.com/ayanozturk/go-php-parser/ast"
+	"github.com/ayanozturk/tusk/ast"
 )
 
 func lowerType(n *RedNode, file *File) ast.Node {

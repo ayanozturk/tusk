@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ayanozturk/go-php-parser/lexer"
+	"github.com/ayanozturk/tusk/lexer"
 )
 
 // TestSyntaxCorpusIdentityGate is a lightweight corpus stub for R5.

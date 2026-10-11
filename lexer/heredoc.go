@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"unicode/utf8"
 
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/token"
 )
 
 // queueHeredocTokens starts a heredoc/nowdoc. T_START_* keeps the exact opener

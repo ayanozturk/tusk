@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/analyse"
-	"github.com/ayanozturk/go-php-parser/diag"
+	"github.com/ayanozturk/tusk/analyse"
+	"github.com/ayanozturk/tusk/diag"
 )
 
 func TestAnalyzeResultDiagnosticsUseSharedByteSpansAndStableOrdering(t *testing.T) {

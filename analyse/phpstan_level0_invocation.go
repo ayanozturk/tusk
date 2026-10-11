@@ -2,7 +2,7 @@ package analyse
 
 import (
 	"fmt"
-	"github.com/ayanozturk/go-php-parser/ast"
+	"github.com/ayanozturk/tusk/ast"
 )
 
 func checkCallArguments(filename string, pos ast.Position, target, name string, args []ast.Node, method ResolvedMethod, ctx *AnalysisContext, issues *[]AnalysisIssue) {

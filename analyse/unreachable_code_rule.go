@@ -3,8 +3,8 @@ package analyse
 import (
 	"strings"
 
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 // UnreachableCodeRule reports statements that can never execute because a

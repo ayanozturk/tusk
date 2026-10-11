@@ -1,6 +1,6 @@
 package analyse
 
-import "github.com/ayanozturk/go-php-parser/ast"
+import "github.com/ayanozturk/tusk/ast"
 
 func methodVisibilityIssuesForFile(filename string, nodes []ast.Node, ctx *AnalysisContext) []AnalysisIssue {
 	return ensureStructuralIssues(filename, nodes, ctx).methodVisibilityIssues

@@ -1,6 +1,6 @@
 package analyse
 
-import "github.com/ayanozturk/go-php-parser/ast"
+import "github.com/ayanozturk/tusk/ast"
 
 func InferTypeAtPosition(nodes []ast.Node, line, column int, ident string, ctx *AnalysisContext) (string, bool) {
 	return InferTypeAtPositionWithFilename(nodes, "", line, column, ident, ctx)

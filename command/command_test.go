@@ -2,8 +2,8 @@ package command
 
 import (
 	"bytes"
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/style"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/style"
 	"io"
 	"os"
 	"strings"

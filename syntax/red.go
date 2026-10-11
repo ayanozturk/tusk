@@ -3,8 +3,8 @@ package syntax
 import (
 	"sync"
 
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/token"
 )
 
 // File is the red root for a parsed source file.

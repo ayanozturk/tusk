@@ -30,7 +30,7 @@ cases.
   the complete discovered path (`.`), one validation, one cold warmup, ten
   interleaved process-cold full-analysis runs per engine, 250 ms settle pauses,
   no extra runs, and no warm-loop phase. The benchmark JSON was retained under
-  `/tmp/go-php-parser-perf-*.json`.
+  `/tmp/tusk-perf-*.json`.
 - Symfony allows exactly the known malformed fixture at
   `src/Symfony/Component/Config/Tests/Fixtures/ParseError.php`; all other read
   and parse failures remain rejected.

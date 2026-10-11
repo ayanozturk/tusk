@@ -3,9 +3,9 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/ayanozturk/go-php-parser/command"
-	"github.com/ayanozturk/go-php-parser/config"
-	"github.com/ayanozturk/go-php-parser/helper"
+	"github.com/ayanozturk/tusk/command"
+	"github.com/ayanozturk/tusk/config"
+	"github.com/ayanozturk/tusk/helper"
 	_ "net/http/pprof" // registers /debug/pprof handlers on DefaultServeMux
 	"os"
 	"time"

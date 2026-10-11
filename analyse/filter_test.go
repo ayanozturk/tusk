@@ -3,7 +3,7 @@ package analyse
 import (
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/overrides"
+	"github.com/ayanozturk/tusk/overrides"
 )
 
 func TestFilterIssuesNilMatcherPassthrough(t *testing.T) {

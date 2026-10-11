@@ -29,7 +29,7 @@ Mago's `list-files` reports all 3,183 configured primary-source PHP files. The c
 
 | Tool | Mean | Median | Min | Max | CV | Max peak RSS |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| go-php-parser production pipeline | 2.059s | 2.063s | 1.948s | 2.142s | 2.61% | 1,061,371,904 bytes |
+| tusk production pipeline | 2.059s | 2.063s | 1.948s | 2.142s | 2.61% | 1,061,371,904 bytes |
 | Mago 1.47.4 | 3.620s | 3.623s | 3.393s | 3.844s | 3.64% | 1,081,245,696 bytes |
 
 | Gate | Result |

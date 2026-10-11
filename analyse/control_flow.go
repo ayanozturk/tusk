@@ -1,6 +1,6 @@
 package analyse
 
-import "github.com/ayanozturk/go-php-parser/ast"
+import "github.com/ayanozturk/tusk/ast"
 
 // FlowNodeID is a stable node identifier within one control-flow graph.
 type FlowNodeID uint32

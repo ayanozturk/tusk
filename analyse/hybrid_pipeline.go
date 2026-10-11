@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/ayanozturk/go-php-parser/ast"
+	"github.com/ayanozturk/tusk/ast"
 )
 
 // NewSemanticSnapshotWithIndexOnly builds a snapshot that carries the project

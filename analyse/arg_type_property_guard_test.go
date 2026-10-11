@@ -3,7 +3,7 @@ package analyse
 import (
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/ast"
+	"github.com/ayanozturk/tusk/ast"
 )
 
 func TestDirectPropertyGuards(t *testing.T) {

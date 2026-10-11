@@ -3,9 +3,9 @@ package command_test
 import (
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/analyse"
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/command"
+	"github.com/ayanozturk/tusk/analyse"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/command"
 )
 
 func TestParseNodesForIndexProjectIndexParity(t *testing.T) {

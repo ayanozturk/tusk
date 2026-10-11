@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 // analysisRuleRegistrySnapshot captures the production rule registry as

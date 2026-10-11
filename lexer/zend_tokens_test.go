@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/token"
 )
 
 func TestTokenStreamIdentityRoundTrip(t *testing.T) {

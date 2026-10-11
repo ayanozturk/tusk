@@ -3,7 +3,7 @@ package syntax
 import (
 	"strings"
 
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/token"
 )
 
 // Expression precedence (higher binds tighter). Mirrors parser/operator.go.

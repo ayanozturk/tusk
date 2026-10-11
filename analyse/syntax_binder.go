@@ -5,8 +5,8 @@ import (
 	"sync"
 	"unicode/utf16"
 
-	"github.com/ayanozturk/go-php-parser/syntax"
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/syntax"
+	"github.com/ayanozturk/tusk/token"
 )
 
 // BindMode selects declaration-tier vs complete reference binding (R3).

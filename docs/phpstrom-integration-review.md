@@ -1,10 +1,10 @@
 # PHP Strom integration review
 
-This document records the August 2026 review of Tusk (Go module path `github.com/ayanozturk/go-php-parser`) as the parser and analysis engine used by the sibling `vscode-php-strom` project.
+This document records the August 2026 review of Tusk (Go module path `github.com/ayanozturk/tusk`) as the parser and analysis engine used by the sibling `vscode-php-strom` project.
 
 ## Current relationship
 
-PHP Strom's production indexer, semantic cache, diagnostics, and several language providers import this module through its canonical `github.com/ayanozturk/go-php-parser` path. Its former duplicate `server/parser` implementation has been removed, and `cmd/parse-test` now exercises the production parser adapter.
+PHP Strom's production indexer, semantic cache, diagnostics, and several language providers import this module through its canonical `github.com/ayanozturk/tusk` path. Its former duplicate `server/parser` implementation has been removed, and `cmd/parse-test` now exercises the production parser adapter.
 
 The review findings below are retained as historical context. The missing ESLint configuration and asynchronous diagnostic test-harness race found during that review have since been fixed. As of extension commit `5462c74` (parser `6372f1d`, pseudo-version `v0.0.0-20260831144126-6372f1de78af`), pinned and sibling-development Go tests, vet, and race suites pass, as do TypeScript lint/compile/package, all six server builds, the VS Code extension-host suite, the synthetic editor latency trace gate, structured analysis range contracts, and the current level-boundary, DNF/nullable, callable, nested/list shape, dynamic-index, clone/coalesce/match/nullsafe, template class-string, and non-object receiver integration contracts.
 
@@ -62,9 +62,9 @@ Status: PHP Strom's duplicate `server/parser` package was removed. Its `cmd/pars
 
 PHP Strom currently requires a zero pseudo-version and replaces it with a relative filesystem path. Its build setup clones the parser's mutable `main` branch when no sibling checkout exists and reuses that cache indefinitely.
 
-Change this module to a canonical import path such as `github.com/ayanozturk/go-php-parser`, publish semantic version tags, and pin PHP Strom to a released version. A local `go.work` override can continue to support coordinated development without becoming part of the published dependency contract.
+Change this module to a canonical import path such as `github.com/ayanozturk/tusk`, publish semantic version tags, and pin PHP Strom to a released version. A local `go.work` override can continue to support coordinated development without becoming part of the published dependency contract.
 
-Status: the module now uses `github.com/ayanozturk/go-php-parser`. PHP Strom commit `cef31c7` pins engine commit `97c5e60` through exact pseudo-version `v0.0.0-20260831124355-97c5e60e1c3d`; normal build and test targets use that module, while explicit `*-dev` targets opt into the sibling checkout through a generated Go workspace. Both paths pass tests, vet, and race checks, and the pinned parser builds all six supported server targets. Publishing a semantic version tag remains a release follow-up.
+Status: the module now uses `github.com/ayanozturk/tusk`. PHP Strom commit `cef31c7` pins engine commit `97c5e60` through exact pseudo-version `v0.0.0-20260831124355-97c5e60e1c3d`; normal build and test targets use that module, while explicit `*-dev` targets opt into the sibling checkout through a generated Go workspace. Both paths pass tests, vet, and race checks, and the pinned parser builds all six supported server targets. Publishing a semantic version tag remains a release follow-up.
 
 ### 6. Add complete source spans
 

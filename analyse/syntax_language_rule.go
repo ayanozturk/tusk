@@ -1,7 +1,7 @@
 package analyse
 
 import (
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 // CheckLanguageIssuesFromCST is the CST-direct analogue of Level0Rule's

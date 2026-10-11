@@ -1,7 +1,7 @@
 package sharedcache
 
 import (
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/token"
 	"testing"
 )
 

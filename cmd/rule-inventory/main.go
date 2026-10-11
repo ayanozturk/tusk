@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ayanozturk/go-php-parser/analyse"
+	"github.com/ayanozturk/tusk/analyse"
 )
 
 const (

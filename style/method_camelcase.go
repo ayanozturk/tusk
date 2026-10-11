@@ -4,8 +4,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/style/helper"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/style/helper"
 )
 
 const psr1MethodCamelCaseCode = "PSR1.Methods.CamelCapsMethodName"

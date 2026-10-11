@@ -48,7 +48,7 @@ Ten process-cold runs alternated tool order. The engine retained the same file a
 
 | Tool | Mean | Median | Min | Max | CV | Max peak RSS | Gate |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| go-php-parser candidate | 3.043s | 2.965s | 2.840s | 3.790s | 8.72% | 1,258,995,712 bytes | Rejected |
+| tusk candidate | 3.043s | 2.965s | 2.840s | 3.790s | 8.72% | 1,258,995,712 bytes | Rejected |
 | Mago 1.47.4 | 3.590s | 3.595s | 3.260s | 4.160s | 6.76% | 1,092,829,184 bytes | Rejected |
 
 The raw engine/Mago ratios were 0.848x mean time and 1.152x maximum peak RSS, inside the numerical Mago-class thresholds. They are not accepted results because both CVs failed, Mago file accounting remains unknown, and enabled semantic coverage is not comparable.

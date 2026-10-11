@@ -30,8 +30,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/ayanozturk/go-php-parser/lexer"
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/lexer"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 type fileResult struct {

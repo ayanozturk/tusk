@@ -3,7 +3,7 @@ package lexer
 import (
 	"strings"
 
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/token"
 )
 
 // keywordTokenMap maps lowercase PHP keywords to their token types.

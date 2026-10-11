@@ -2,11 +2,11 @@
 
 ## Outcome
 
-This run is accepted as an early architecture and profiling indicator, but rejected as a performance comparison. It confirms complete and deterministic file/diagnostic accounting on the selected WordPress workload and identifies allocation patterns that should be corrected during M1. It does not establish that go-php-parser is faster than Mago or that the current engine regressed against the previous snapshot.
+This run is accepted as an early architecture and profiling indicator, but rejected as a performance comparison. It confirms complete and deterministic file/diagnostic accounting on the selected WordPress workload and identifies allocation patterns that should be corrected during M1. It does not establish that tusk is faster than Mago or that the current engine regressed against the previous snapshot.
 
 ## Reproducible source and workload
 
-- go-php-parser commit: `b802a769b658cf6cc2290f6cde1b6bacc377951a` (clean working tree).
+- tusk commit: `b802a769b658cf6cc2290f6cde1b6bacc377951a` (clean working tree).
 - WordPress commit: `daaca56d3d6a9a42a0c87f6eda766c33a77c1d05`.
 - Composer dependency fingerprint: `be6b7bd587d566ca1308c99b883a937efe3d11b204977499886800af9cc159c4` (`vendor/composer/installed.json`, SHA-256).
 - Paths: `src`, `tests`, `vendor`; excluded path: `src/js`.

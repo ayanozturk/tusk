@@ -7,7 +7,7 @@
 // RSS.").
 //
 // It exercises the same engine as the production analyser
-// (github.com/ayanozturk/go-php-parser/analyse), not the style checker, so
+// (github.com/ayanozturk/tusk/analyse), not the style checker, so
 // results reflect the full-analyser target rather than PSR-12 style rules.
 //
 // Usage:
@@ -64,9 +64,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ayanozturk/go-php-parser/analyse"
-	"github.com/ayanozturk/go-php-parser/ast"
-	"github.com/ayanozturk/go-php-parser/syntax"
+	"github.com/ayanozturk/tusk/analyse"
+	"github.com/ayanozturk/tusk/ast"
+	"github.com/ayanozturk/tusk/syntax"
 )
 
 // runMetrics captures everything the comparable-performance contract asks

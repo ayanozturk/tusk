@@ -3,7 +3,7 @@ package diag
 import (
 	"unicode/utf8"
 
-	"github.com/ayanozturk/go-php-parser/token"
+	"github.com/ayanozturk/tusk/token"
 )
 
 // ParseErrorFromOffsets builds a structured ParseError from a byte span and
