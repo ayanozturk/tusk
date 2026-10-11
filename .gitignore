@@ -10,6 +10,7 @@ coverage.html
 mem.out
 cpu.out
 *.test
+.vscode/
 
 # Benchmark/compat-metrics corpora are fetched on demand by
 # `go run ./cmd/fetch-test-projects` per test_projects/manifest.json; the

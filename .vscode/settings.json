@@ -1,3 +1,7 @@
 {
-    "kiroAgent.configureMCP": "Disabled"
+    "kiroAgent.configureMCP": "Disabled",
+    "sonarlint.connectedMode.project": {
+        "connectionId": "ayanozturk",
+        "projectKey": "ayanozturk_tusk"
+    }
 }
