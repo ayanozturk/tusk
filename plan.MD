@@ -26,9 +26,10 @@ Scope: stabilize the parser, analyser, CLI, and PHP Strom integration for a 1.0 
 
 ## Cross-repository rename
 
-- [ ] Rename the GitHub repository and canonical Go module to
+- [x] Rename the GitHub repository and canonical Go module to
   `github.com/ayanozturk/tusk`; update parser and PHP Strom imports, dependency
-  pin, local development paths, repository links, and documentation.
+  pin, local development paths, repository links, and documentation. Verified with
+  parser and pinned/development Strom builds and vets.
 
 ## Current diagnostic-quality work
 
