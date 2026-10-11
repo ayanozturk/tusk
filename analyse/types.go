@@ -326,7 +326,14 @@ func (t Type) AcceptsWithContext(actual Type, scope *functionScope, ctx *Analysi
 	if t.IsEmpty() || actual.IsEmpty() {
 		return true
 	}
+	actual = actual.withoutBuiltin("never")
+	if actual.IsEmpty() {
+		return true
+	}
 	if t.hasBuiltin("mixed") || actual.hasBuiltin("mixed") {
+		return true
+	}
+	if integerTypeCoveredBy(actual, t) {
 		return true
 	}
 	// PHPUnit and Mockery describe generated doubles as intersections such as
@@ -780,6 +787,64 @@ func integerIntervalSubset(actual, declared integerInterval) bool {
 	return lowerWithin && upperWithin
 }
 
+func integerTypeCoveredBy(actual, declared Type) bool {
+	if len(actual.atoms) == 0 || len(declared.atoms) == 0 {
+		return false
+	}
+	declaredIntervals := make([]integerInterval, 0, len(declared.atoms))
+	for _, atom := range declared.sortedAtoms() {
+		interval, ok := integerAtomInterval(atom)
+		if !ok {
+			continue
+		}
+		declaredIntervals = append(declaredIntervals, interval)
+	}
+	if len(declaredIntervals) == 0 {
+		return false
+	}
+	sort.Slice(declaredIntervals, func(i, j int) bool {
+		left, right := declaredIntervals[i], declaredIntervals[j]
+		if left.lowerUnbounded != right.lowerUnbounded {
+			return left.lowerUnbounded
+		}
+		return left.lower < right.lower
+	})
+	for _, atom := range actual.sortedAtoms() {
+		target, ok := integerAtomInterval(atom)
+		if !ok {
+			return false
+		}
+		covered := false
+		var upper int64
+		upperUnbounded := false
+		for _, interval := range declaredIntervals {
+			if !covered {
+				lowerCovers := interval.lowerUnbounded || (!target.lowerUnbounded && interval.lower <= target.lower)
+				if !lowerCovers {
+					continue
+				}
+				covered = true
+				upper, upperUnbounded = interval.upper, interval.upperUnbounded
+			} else if upperUnbounded {
+				break
+			} else if interval.lowerUnbounded || upper == int64(^uint64(0)>>1) || interval.lower <= upper+1 {
+				if interval.upperUnbounded || interval.upper > upper {
+					upper, upperUnbounded = interval.upper, interval.upperUnbounded
+				}
+			} else {
+				break
+			}
+			if target.upperUnbounded && upperUnbounded || !target.upperUnbounded && (upperUnbounded || upper >= target.upper) {
+				break
+			}
+		}
+		if !covered || target.upperUnbounded && !upperUnbounded || !target.upperUnbounded && !upperUnbounded && upper < target.upper {
+			return false
+		}
+	}
+	return true
+}
+
 func atomsCompatible(declared, actual typeAtom) bool {
 	return atomsCompatibleWithContext(declared, actual, nil, nil)
 }
@@ -787,6 +852,14 @@ func atomsCompatible(declared, actual typeAtom) bool {
 func atomsCompatibleWithContext(declared, actual typeAtom, scope *functionScope, ctx *AnalysisContext) bool {
 	if declared.key == actual.key {
 		return true
+	}
+	if declared.kind == typeKindBuiltin && actualArrayShape(actual.display) {
+		switch declared.key {
+		case "array", "iterable":
+			return true
+		case "non-empty-array":
+			return isNonEmptyArrayShape(actual.display)
+		}
 	}
 	if declared.kind == typeKindBuiltin && actual.kind == typeKindBuiltin {
 		if value, literal := stringLiteralAtomValue(actual); literal {
@@ -886,6 +959,19 @@ func atomsCompatibleWithContext(declared, actual typeAtom, scope *functionScope,
 		return classHierarchyCompatible(declared.display, actual.display, scope, ctx)
 	}
 	return false
+}
+
+func actualArrayShape(raw string) bool {
+	_, ok := arrayShapeBody(raw)
+	return ok
+}
+
+func isNonEmptyArrayShape(raw string) bool {
+	if !actualArrayShape(raw) {
+		return false
+	}
+	lower := asciiLowerIdent(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(raw), "?")))
+	return strings.HasPrefix(lower, "non-empty-array{") || strings.HasPrefix(lower, "non-empty-list{")
 }
 
 func isStringRefinement(key string) bool {

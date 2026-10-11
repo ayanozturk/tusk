@@ -195,7 +195,11 @@ func (r *ReturnTypeRule) checkFunctionReturnType(filename string, fn *ast.Functi
 	returnTypes := map[string]int{}
 	var firstMismatch *ReturnTypeError
 	scope := analysisFunctionScope(ctx, class, fn, typeCtx)
-	for _, ret := range collectObservedReturns(filename, fn.Body, scope, ctx) {
+	observedReturns := collectObservedReturns(filename, fn.Body, scope, ctx)
+	if returnsSameDocumentedParameter(fn, class, typeCtx, declaredType, observedReturns) {
+		return nil
+	}
+	for _, ret := range observedReturns {
 		actualType := ret.Type
 		// Preserve symbolic template identity where the declaration accepts it;
 		// otherwise its bound can establish compatibility with a native return.
@@ -266,6 +270,44 @@ func (r *ReturnTypeRule) checkFunctionReturnType(filename string, fn *ast.Functi
 		return []error{firstMismatch}
 	}
 	return nil
+}
+
+func returnsSameDocumentedParameter(fn *ast.FunctionNode, class *ast.ClassNode, typeCtx FileTypeContext, declaredType Type, returns []observedReturn) bool {
+	if fn == nil || fn.PHPDoc == nil || strings.TrimSpace(fn.PHPDoc.ReturnType) == "" || len(returns) == 0 {
+		return false
+	}
+	var classPHPDoc *ast.PHPDocNode
+	if class != nil {
+		classPHPDoc = class.PHPDoc
+	}
+	aliases := phpDocTypeAliasBindings(classPHPDoc, fn.PHPDoc)
+	returnType := expandPHPDocTypeAliases(fn.PHPDoc.ReturnType, aliases)
+	if indexed, ok := resolvePHPDocIndexedTypes(returnType, typeCtx); ok {
+		returnType = indexed
+	}
+	returnType = normalizeTemplateAwareType(returnType, typeCtx, phpDocTemplateNames(class, fn.PHPDoc))
+	if returnType == "" || !declaredType.Accepts(ParseType(returnType)) {
+		return false
+	}
+	parameterTypes := make(map[string]string, len(fn.Params))
+	for _, node := range fn.Params {
+		param, ok := node.(*ast.ParamNode)
+		if !ok || fn.PHPDoc.GetParamTypeFromPHPDoc(param.Name) == "" {
+			continue
+		}
+		raw := expandPHPDocTypeAliases(fn.PHPDoc.GetParamTypeFromPHPDoc(param.Name), aliases)
+		if indexed, ok := resolvePHPDocIndexedTypes(raw, typeCtx); ok {
+			raw = indexed
+		}
+		parameterTypes[param.Name] = normalizeTemplateAwareType(raw, typeCtx, phpDocTemplateNames(class, fn.PHPDoc))
+	}
+	for _, ret := range returns {
+		variable, ok := ret.Expr.(*ast.VariableNode)
+		if !ok || !sameResolvedType(returnType, parameterTypes[variable.Name]) {
+			return false
+		}
+	}
+	return true
 }
 
 func (r *ReturnTypeRule) CheckIssues(nodes []ast.Node, filename string, ctx *AnalysisContext) []AnalysisIssue {
@@ -437,6 +479,37 @@ func inferReturnTypeWithFacts(filename string, expr ast.Node, scope *functionSco
 			if inferred.hasBuiltin("int") && len(inferred.atoms) == 1 {
 				return ParseType(strconv.FormatInt(node.Value, 10))
 			}
+		case *ast.TernaryExpr:
+			trueScope := scopeForConditionTrue(scope, node.Condition, ctx)
+			ifTrue := inferTernaryReturnBranch(node.IfTrue, trueScope, ctx)
+			if node.IfTrue == nil || node.IfTrue == node.Condition {
+				ifTrue = inferTernaryReturnBranch(node.Condition, trueScope, ctx).withoutBuiltin("false").withoutBuiltin("null")
+			}
+			falseScope := scopeForConditionFalse(scope, node.Condition, ctx)
+			return unionInferredTypes(ifTrue, inferTernaryReturnBranch(node.IfFalse, falseScope, ctx))
+		}
+	}
+	return inferred
+}
+
+func inferTernaryReturnBranch(expr ast.Node, scope *functionScope, ctx *AnalysisContext) Type {
+	inferred := inferType(expr, scope, ctx)
+	switch node := expr.(type) {
+	case *ast.IntegerLiteral:
+		if inferred.hasBuiltin("int") && len(inferred.atoms) == 1 {
+			return ParseType(strconv.FormatInt(node.Value, 10))
+		}
+	case *ast.IntegerNode:
+		if inferred.hasBuiltin("int") && len(inferred.atoms) == 1 {
+			return ParseType(strconv.FormatInt(node.Value, 10))
+		}
+	case *ast.StringLiteral:
+		if isPlainStringType(inferred) {
+			return stringLiteralType(node.Value)
+		}
+	case *ast.StringNode:
+		if isPlainStringType(inferred) {
+			return stringLiteralType(node.Value)
 		}
 	}
 	return inferred
@@ -1096,6 +1169,7 @@ func newFunctionScopeWithContext(ctx *AnalysisContext, class *ast.ClassNode, fn 
 		if fn.PHPDoc != nil {
 			documentedType = fn.PHPDoc.GetParamTypeFromPHPDoc(param.Name)
 		}
+		documentedType = expandPHPDocTypeAliases(documentedType, scope.typeAliases)
 		paramType := TypeFromAST(param.TypeHint, typeCtx)
 		if documentedType != "" {
 			nativeType := ""
@@ -2593,9 +2667,20 @@ func templateNameFromCallableParamType(raw string, ctx *AnalysisContext) string 
 
 func rawCallableReturnType(raw string) string {
 	raw = stripBalancedOuterTypeParens(strings.TrimSpace(raw))
-	_, result, ok := phpDocCallableSignature(raw)
-	if !ok {
-		return ""
+	parts := splitTopLevelTypes(raw, '|')
+	if len(parts) == 0 {
+		parts = []string{raw}
+	}
+	result := ""
+	for _, part := range parts {
+		_, current, ok := phpDocCallableSignature(stripBalancedOuterTypeParens(strings.TrimSpace(part)))
+		if !ok {
+			continue
+		}
+		if result != "" && !sameResolvedType(result, current) {
+			return ""
+		}
+		result = current
 	}
 	return result
 }

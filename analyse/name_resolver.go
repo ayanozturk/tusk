@@ -223,6 +223,9 @@ func normalizeTypeExpressionWithContext(raw string, ctx FileTypeContext) string 
 	if raw == "" {
 		return ""
 	}
+	if interval, ok := parseIntegerRange(raw); ok {
+		return "int<" + interval.lowerText + ", " + interval.upperText + ">"
+	}
 	if isQuotedPHPDocString(raw) {
 		return raw
 	}

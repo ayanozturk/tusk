@@ -47,6 +47,10 @@ clean. Template names need not start with `T`. Unresolved templates fall back to
 their declared bound or `mixed`; unpacked and structured parameter inference,
 dependent template bounds, and complex callback bodies remain partial.
 
+False-path facts from the left operand of `||` refine the right operand while
+checking a terminating compound guard. Integer range bound keywords such as
+`min` and `max` remain global inside namespaces.
+
 Known standalone `callable(...)` / `Closure(...)` parameter contracts check
 callback parameter contravariance, return covariance, and required, optional,
 and variadic arity at level 5. Relative callback types bind to the callee, and

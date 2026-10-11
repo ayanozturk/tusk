@@ -499,8 +499,17 @@ func variablesTypedWhenFalse(node ast.Node, scope *functionScope) map[string]Typ
 	case *ast.BinaryExpr:
 		switch n.Operator {
 		case "||", "or":
+			// Both operands must be false. Refine the right operand under the
+			// left operand's false-path facts before combining the result.
 			types := variablesTypedWhenFalse(n.Left, scope)
-			for name, typ := range variablesTypedWhenFalse(n.Right, scope) {
+			rightScope := scope
+			if scope != nil && len(types) > 0 {
+				rightScope = scope.clone()
+				for name, typ := range types {
+					rightScope.setVariable(name, typ)
+				}
+			}
+			for name, typ := range variablesTypedWhenFalse(n.Right, rightScope) {
 				types[name] = typ
 			}
 			return types

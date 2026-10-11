@@ -190,6 +190,11 @@ func appendPHPDocTypeIssues(filename string, declaration ast.Node, raw string, t
 	if raw == "" {
 		return
 	}
+	// Psalm/PHPStan use ...<K, V> for the open tail of an array shape. It
+	// carries an array key/value contract, not a class named "...".
+	if strings.HasPrefix(raw, "...<") && strings.HasSuffix(raw, ">") {
+		return
+	}
 	if parts := splitTopLevelTypes(raw, '|'); len(parts) > 1 {
 		for _, part := range parts {
 			appendPHPDocTypeIssues(filename, declaration, part, templates, ft, ctx, issues)
@@ -381,6 +386,9 @@ func erasePHPDocGenericArguments(raw string) string {
 	raw = stripBalancedOuterTypeParens(strings.TrimSpace(raw))
 	if raw == "" {
 		return ""
+	}
+	if _, ok := arrayShapeBody(raw); ok {
+		return "array"
 	}
 	if strings.HasPrefix(raw, "?") {
 		return "?" + erasePHPDocGenericArguments(strings.TrimSpace(strings.TrimPrefix(raw, "?")))

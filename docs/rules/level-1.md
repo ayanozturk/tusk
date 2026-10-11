@@ -69,9 +69,9 @@ function mode(): string {
 
 `Level1.Core` adds these PHPStan level-1 checks:
 
-- Undefined global constant reads (`constant.notFound`); PHP magic constants and `match` default arms are recognized as language built-ins.
+- Undefined global constant reads (`constant.notFound`); PHP magic constants, common core constants such as `DATE_ATOM` and `JSON_ERROR_NONE`, and `match` default arms are recognized as language built-ins.
 - Unused non-promoted constructor parameters and unused closure `use` captures.
-- Redundant `isset()`, `empty()`, and `??` checks where the current parameter or PHPDoc type proves the result.
+- Redundant `isset()`, `empty()`, and `??` checks where the current parameter or PHPDoc type proves the result. An inferred empty array assigned to a mutable local does not by itself prove that a later `empty()` call remains true.
 
 Existing level-0 rule entries also implement cumulative PHPStan behavior with level-dependent reporting:
 

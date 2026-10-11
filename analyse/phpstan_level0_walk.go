@@ -121,6 +121,8 @@ func walkAllConfigured(nodes []ast.Node, fn func(ast.Node, *ast.ClassNode, *ast.
 			}
 		case *ast.ExpressionStmt:
 			walk(n.Expr, class, currentFn, ft)
+		case *ast.TypeCastNode:
+			walk(n.Expr, class, currentFn, ft)
 		case *ast.AssignmentNode:
 			walk(n.Left, class, currentFn, ft)
 			walk(n.Right, class, currentFn, ft)

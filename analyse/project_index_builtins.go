@@ -458,7 +458,11 @@ func (idx *ProjectIndex) seedBuiltins() {
 	} {
 		idx.addFunction(fn)
 	}
-	for _, constant := range []string{"PHP_VERSION", "PHP_VERSION_ID", "PHP_MAJOR_VERSION", "PHP_MINOR_VERSION", "PHP_OS", "PHP_EOL", "true", "false", "null"} {
+	for _, constant := range []string{
+		"PHP_VERSION", "PHP_VERSION_ID", "PHP_MAJOR_VERSION", "PHP_MINOR_VERSION", "PHP_OS", "PHP_EOL",
+		"DATE_ATOM", "FILE_APPEND", "FILTER_VALIDATE_BOOLEAN", "FILTER_VALIDATE_EMAIL", "JSON_ERROR_NONE",
+		"PATHINFO_EXTENSION", "UPLOAD_ERR_OK", "true", "false", "null",
+	} {
 		idx.addGlobalConstant("", constant)
 	}
 }

@@ -225,6 +225,9 @@ func singleCompoundBuiltin(typ Type) (string, bool) {
 		if atom.kind != typeKindBuiltin || atom.key == "mixed" {
 			return "", false
 		}
+		if strings.HasPrefix(atom.key, "int-literal:") {
+			return "int", true
+		}
 		if atom.key == "empty-array" || atom.key == "non-empty-array" {
 			return "array", true
 		}

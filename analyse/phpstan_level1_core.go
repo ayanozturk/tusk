@@ -208,6 +208,12 @@ func appendLevel1NullableCheck(filename string, expr ast.Node, kind string, scop
 		if typ.hasBuiltin("null") {
 			return
 		}
+		// A local PHP array can be populated after its empty literal or empty
+		// shape is inferred. Without a stable point-in-time mutation proof,
+		// empty-array alone is not enough to claim that empty($value) is true.
+		if typ.hasBuiltin("empty-array") {
+			return
+		}
 		if definitelyTruthyForEmptyCheck(typ) {
 			message = fmt.Sprintf("Variable $%s in empty() always exists and is not falsy.", variable.Name)
 		} else if definitelyFalseyForEmptyCheck(typ) {
