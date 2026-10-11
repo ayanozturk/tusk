@@ -1,4 +1,8 @@
-# Tusk
+<p align="center">
+  <img src="docs/assets/tusk-logo.png" alt="Tusk logo" width="180">
+</p>
+
+<h1 align="center">Tusk</h1>
 
 A PHP parser, code-style checker, and project-aware static analyzer written in Go.
 
