@@ -38,6 +38,7 @@ var keywordTokenMap = map[string]token.TokenType{
 	"abstract":     token.T_ABSTRACT,
 	"final":        token.T_FINAL,
 	"static":       token.T_STATIC,
+	"var":          token.T_VAR,
 	"return":       token.T_RETURN,
 	"declare":      token.T_DECLARE,
 	"default":      token.T_DEFAULT,

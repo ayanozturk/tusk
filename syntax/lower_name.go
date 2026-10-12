@@ -65,7 +65,7 @@ func lowerModifiers(n *RedNode) ast.ModifierList {
 		}
 		switch tok.Type {
 		case token.T_PUBLIC, token.T_PROTECTED, token.T_PRIVATE,
-			token.T_STATIC, token.T_FINAL, token.T_ABSTRACT, token.T_READONLY:
+			token.T_STATIC, token.T_FINAL, token.T_ABSTRACT, token.T_READONLY, token.T_VAR:
 			m := ast.Modifier{Tok: tok.Type, Text: tok.Literal}
 			// Asymmetric visibility: public(set)
 			if (tok.Type == token.T_PUBLIC || tok.Type == token.T_PROTECTED || tok.Type == token.T_PRIVATE) &&

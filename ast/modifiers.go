@@ -44,6 +44,8 @@ func ModifierFromText(s string) Modifier {
 		m.Tok = token.T_ABSTRACT
 	case "readonly":
 		m.Tok = token.T_READONLY
+	case "var":
+		m.Tok = token.T_VAR
 	}
 	return m
 }
@@ -82,6 +84,8 @@ func (m Modifier) canonicalBase() string {
 		return "abstract"
 	case token.T_READONLY:
 		return "readonly"
+	case token.T_VAR:
+		return "var"
 	default:
 		return ""
 	}

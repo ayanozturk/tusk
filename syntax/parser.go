@@ -326,7 +326,7 @@ func (p *Parser) tryParseStructured() *GreenNode {
 func (p *Parser) isModifierToken(tt token.TokenType) bool {
 	switch tt {
 	case token.T_PUBLIC, token.T_PROTECTED, token.T_PRIVATE,
-		token.T_STATIC, token.T_ABSTRACT, token.T_FINAL, token.T_READONLY:
+		token.T_STATIC, token.T_ABSTRACT, token.T_FINAL, token.T_READONLY, token.T_VAR:
 		return true
 	default:
 		return false
