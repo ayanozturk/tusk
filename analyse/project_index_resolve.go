@@ -67,11 +67,12 @@ func (idx *ProjectIndex) resolveMethodFromNonGenericLineage(className, methodNam
 	}
 	lowerMethodName := asciiLowerIdent(methodName)
 	for _, candidate := range lineage {
-		resolved, ok := idx.Classes[indexKey(candidate)]
+		candidateKey := indexKey(candidate)
+		resolved, ok := idx.Classes[candidateKey]
 		if !ok || len(resolved.GenericParents) != 0 {
 			return ResolvedMethod{}, false, false
 		}
-		if method, found := idx.Methods[indexKey(resolved.Name)][lowerMethodName]; found {
+		if method, found := idx.Methods[candidateKey][lowerMethodName]; found {
 			method.DeclaringClass = resolved.Name
 			return method, true, true
 		}
