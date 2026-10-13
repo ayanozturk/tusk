@@ -299,6 +299,7 @@ ignore:
   # - vendor
 ```
 - `path`: Directory to scan
+- `includes`: Additional index-only files/directories for symbol resolution. Composer `vendor` and the nearest `composer.json` autoload PSR-4, PSR-0, and classmap paths are indexed automatically; those files do not receive diagnostics.
 - `extensions`: File extensions to include
 - `ignore`: Directories to skip (uncomment to enable)
 

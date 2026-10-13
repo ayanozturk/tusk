@@ -92,7 +92,7 @@ The supported keys are:
 | Key | YAML type | Meaning |
 | --- | --- | --- |
 | `path` | string | Root walked for project files. |
-| `includes` | list of strings | Extra files/directories indexed for symbol resolution; their diagnostics are not reported. Composer `vendor` under `path` is indexed automatically. |
+| `includes` | list of strings | Extra files/directories indexed for symbol resolution; their diagnostics are not reported. Composer `vendor` under `path` and paths from the nearest `composer.json`'s `autoload` / `autoload-dev` PSR-4, PSR-0, and classmap entries are also indexed when present. |
 | `extensions` | list of strings | File extensions without a leading dot. Defaults from `init` to `php`. |
 | `ignore` | list of strings | Directory names skipped while walking `path` and include directories. |
 | `rules` | list of strings | Style rule codes to run; `all` selects every registered style rule. |

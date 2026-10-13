@@ -327,46 +327,71 @@ func TestGetIncludeFilesSkipsMissingDirectory(t *testing.T) {
 }
 
 func TestGetIncludeFilesIndexesComposerAutoloadDirsOutsideConfigPath(t *testing.T) {
-	root := t.TempDir()
-	composerJSON := `{
-  "autoload": {
-    "classmap": ["common/Classes/"],
-    "psr-4": {"RG\\": "common/Classes/"}
-  }
-}`
-	if err := os.WriteFile(filepath.Join(root, "composer.json"), []byte(composerJSON), 0644); err != nil {
-		t.Fatalf("write composer.json: %v", err)
-	}
-	legacyClass := filepath.Join(root, "common", "Classes", "Contact.class.php")
-	if err := os.MkdirAll(filepath.Dir(legacyClass), 0755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	if err := os.WriteFile(legacyClass, []byte("<?php\nclass RG_User_Contact {}\n"), 0644); err != nil {
-		t.Fatalf("write: %v", err)
+	cases := []struct {
+		name         string
+		composerJSON string
+		file         string
+	}{
+		{
+			name:         "psr-4 single target",
+			composerJSON: `{"autoload":{"psr-4":{"RG\\":"shared/psr4"}}}`,
+			file:         "shared/psr4/Contact.php",
+		},
+		{
+			name:         "psr-4 multiple targets",
+			composerJSON: `{"autoload":{"psr-4":{"RG\\":["shared/one","shared/two"]}}}`,
+			file:         "shared/two/Contact.php",
+		},
+		{
+			name:         "psr-0 target",
+			composerJSON: `{"autoload":{"psr-0":{"RG_":"legacy"}}}`,
+			file:         "legacy/Contact.class.php",
+		},
+		{
+			name:         "classmap target",
+			composerJSON: `{"autoload":{"classmap":["common/Classes/"]}}`,
+			file:         "common/Classes/Contact.class.php",
+		},
+		{
+			name:         "autoload-dev target",
+			composerJSON: `{"autoload-dev":{"psr-4":{"Dev\\":"tests/support"}}}`,
+			file:         "tests/support/Fixture.php",
+		},
 	}
 
-	projectPath := filepath.Join(root, "api-rg")
-	if err := os.MkdirAll(projectPath, 0755); err != nil {
-		t.Fatalf("mkdir project: %v", err)
-	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			if err := os.WriteFile(filepath.Join(root, "composer.json"), []byte(tc.composerJSON), 0644); err != nil {
+				t.Fatalf("write composer.json: %v", err)
+			}
+			indexedFile := filepath.Join(root, filepath.FromSlash(tc.file))
+			if err := os.MkdirAll(filepath.Dir(indexedFile), 0755); err != nil {
+				t.Fatalf("mkdir indexed directory: %v", err)
+			}
+			if err := os.WriteFile(indexedFile, []byte("<?php\nclass Fixture {}\n"), 0644); err != nil {
+				t.Fatalf("write indexed file: %v", err)
+			}
 
-	cfg := &Config{
-		Path:       projectPath,
-		Extensions: []string{"php"},
-		Ignore:     []string{"vendor"},
-	}
-	includes, err := GetIncludeFiles(cfg)
-	if err != nil {
-		t.Fatalf("include scan: %v", err)
-	}
-	found := false
-	for _, f := range includes {
-		if f == legacyClass {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatalf("expected composer autoload dir %q to be indexed, got %#v", legacyClass, includes)
+			projectPath := filepath.Join(root, "api-rg")
+			if err := os.MkdirAll(projectPath, 0755); err != nil {
+				t.Fatalf("mkdir project: %v", err)
+			}
+			includes, err := GetIncludeFiles(&Config{
+				Path:       projectPath,
+				Extensions: []string{"php"},
+				Ignore:     []string{"vendor"},
+			})
+			if err != nil {
+				t.Fatalf("include scan: %v", err)
+			}
+			for _, file := range includes {
+				if file == indexedFile {
+					return
+				}
+			}
+			t.Fatalf("expected Composer target %q to be indexed, got %#v", indexedFile, includes)
+		})
 	}
 }
 
