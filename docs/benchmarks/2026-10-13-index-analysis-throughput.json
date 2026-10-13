@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-13",
+  "baselineCommit": "cb6cc5c5",
+  "candidateCommit": "e9809ebe",
+  "host": {
+    "model": "MacBookPro17,1",
+    "chip": "Apple M1",
+    "os": "macOS 26.5.2",
+    "architecture": "arm64",
+    "logicalCpus": 8,
+    "memoryBytes": 8589934592,
+    "go": "go1.27.1",
+    "gowork": "off"
+  },
+  "workload": {
+    "corpus": "test_projects/wordpress-develop",
+    "paths": [
+      "."
+    ],
+    "files": 5362,
+    "lines": 1451710,
+    "bytes": 47359328
+  },
+  "indexParentTimedColdEightWorkers": {
+    "baseline": {
+      "wallMs": [
+        495.911,
+        506.596,
+        484.961,
+        477.807,
+        488.479,
+        496.305,
+        473.82,
+        481.46,
+        478.452,
+        480.321,
+        516.0,
+        476.892,
+        499.656,
+        488.667,
+        480.112,
+        494.579,
+        478.982,
+        477.904,
+        482.246,
+        511.431
+      ],
+      "meanMs": 488.529089698568,
+      "cv": 0.024621744652397276,
+      "filesDiscovered": 5362,
+      "filesParsed": 5362,
+      "filesFailed": 0,
+      "totalLoc": 1451710
+    },
+    "candidate": {
+      "wallMs": [
+        464.422,
+        485.581,
+        469.105,
+        501.558,
+        487.54,
+        504.992,
+        466.308,
+        482.473,
+        458.917,
+        468.538,
+        467.12,
+        464.78,
+        472.868,
+        462.654,
+        507.12,
+        479.713,
+        495.427,
+        467.952,
+        469.764,
+        461.325
+      ],
+      "meanMs": 476.9079082412645,
+      "cv": 0.031236962419036448,
+      "filesDiscovered": 5362,
+      "filesParsed": 5362,
+      "filesFailed": 0,
+      "totalLoc": 1451710
+    }
+  },
+  "coldFullPipeline": {
+    "workers4": {
+      "baseline": {
+        "runsMs": [
+          3017,
+          3087,
+          3058,
+          3020,
+          3043,
+          3040,
+          3060,
+          3075,
+          3056,
+          3029
+        ],
+        "meanMs": 3048.5,
+        "cv": 0.007149628265110064,
+        "filesDiscovered": 5362,
+        "filesParsed": 5362,
+        "filesFailed": 0,
+        "totalLoc": 1451710,
+        "diagnostics": 54216,
+        "accepted": true
+      },
+      "candidate": {
+        "runsMs": [
+          3090,
+          3051,
+          3080,
+          3057,
+          3064,
+          3037,
+          3095,
+          3041,
+          3109,
+          3059
+        ],
+        "meanMs": 3068.3,
+        "cv": 0.007456296815845538,
+        "filesDiscovered": 5362,
+        "filesParsed": 5362,
+        "filesFailed": 0,
+        "totalLoc": 1451710,
+        "diagnostics": 54216,
+        "accepted": true
+      }
+    },
+    "workers8": {
+      "baseline": {
+        "runsMs": [
+          2517,
+          2506,
+          2477,
+          2498,
+          2522,
+          2512,
+          2538,
+          2532,
+          2537,
+          2545
+        ],
+        "meanMs": 2518.4,
+        "cv": 0.007904136775583694,
+        "filesDiscovered": 5362,
+        "filesParsed": 5362,
+        "filesFailed": 0,
+        "totalLoc": 1451710,
+        "diagnostics": 54216,
+        "accepted": true
+      },
+      "candidate": {
+        "runsMs": [
+          2495,
+          2511,
+          2503,
+          2601,
+          2516,
+          2490,
+          2485,
+          2505,
+          2538,
+          2521
+        ],
+        "meanMs": 2516.5,
+        "cv": 0.012644156355848759,
+        "filesDiscovered": 5362,
+        "filesParsed": 5362,
+        "filesFailed": 0,
+        "totalLoc": 1451710,
+        "diagnostics": 54216,
+        "accepted": true
+      }
+    }
+  },
+  "snapshotParity": {
+    "analysisTargets": 3187,
+    "parseErrors": 0,
+    "issueEntries": 54216,
+    "issueSetsEqual": true
+  }
+}

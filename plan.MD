@@ -49,6 +49,13 @@ Scope: stabilize the parser, analyser, CLI, and PHP Strom integration for a 1.0 
   has two prior false `A.ARG.TYPE` findings removed at final `TreeNode` and
   `Address` guards, both verified against their source branches. The reviewed-
   corpus gate remains open.
+- [x] Improve and measure WordPress index throughput. The no-delimiter type
+  splitter fast path raised parent-timed index throughput 2.44% over 20 paired
+  eight-worker runs; eight workers also delivered 21.9% more cold full-pipeline
+  throughput than four on the current Mac. Same-worker full-analysis throughput
+  stayed neutral, and exact diagnostic snapshots matched. See
+  [index and analysis throughput](docs/benchmarks/2026-10-13-index-analysis-throughput.md);
+  this single-host result does not close the release-wide performance gate.
 - [x] Deliver parser `48208dd1` through Strom `a43607a` and verify pinned
   and sibling-development server tests/vet on Go 1.23.12.
 - [ ] Continue reviewed-corpus triage: remaining engine-only PSL argument/return
