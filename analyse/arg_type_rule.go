@@ -239,6 +239,11 @@ func scopeForConditionFalse(scope *functionScope, condition ast.Node, ctx *Analy
 			refined.setVariable(name, typ)
 		}
 	}
+	for name, typ := range variablesWithoutFinalInstanceofWhenFalse(condition, refined, ctx) {
+		if !typ.IsEmpty() {
+			refined.setVariable(name, typ)
+		}
+	}
 	for _, name := range variablesNonNullWhenFalse(condition) {
 		if typ, ok := nonNullVariableType(refined, name); ok {
 			refined.setVariable(name, typ)
@@ -256,6 +261,51 @@ func scopeForConditionFalse(scope *functionScope, condition ast.Node, ctx *Analy
 		}
 	}
 	return refined
+}
+
+func variablesWithoutFinalInstanceofWhenFalse(node ast.Node, scope *functionScope, ctx *AnalysisContext) map[string]Type {
+	if binary, ok := node.(*ast.BinaryExpr); ok {
+		if binary.Operator == "||" || binary.Operator == "or" {
+			result := variablesWithoutFinalInstanceofWhenFalse(binary.Left, scope, ctx)
+			rightScope := scope
+			if len(result) > 0 && scope != nil {
+				rightScope = scope.clone()
+				for name, typ := range result {
+					rightScope.setVariable(name, typ)
+				}
+			}
+			for name, typ := range variablesWithoutFinalInstanceofWhenFalse(binary.Right, rightScope, ctx) {
+				result[name] = typ
+			}
+			return result
+		}
+	}
+	instanceof, ok := node.(*ast.BinaryExpr)
+	if !ok || instanceof.Operator != "instanceof" || ctx == nil || ctx.Resolver == nil {
+		return map[string]Type{}
+	}
+	variable, ok := instanceof.Left.(*ast.VariableNode)
+	if !ok {
+		return map[string]Type{}
+	}
+	asserted := typeFromInstanceofTarget(instanceof.Right, scope)
+	className, ok := asserted.SingleClassName()
+	if !ok {
+		return map[string]Type{}
+	}
+	resolved, ok := ctx.Resolver.ResolveClass(className)
+	if !ok || !resolved.Final || scope == nil {
+		return map[string]Type{}
+	}
+	current, ok := scope.variable(variable.Name)
+	if !ok {
+		return map[string]Type{}
+	}
+	refined := current.withoutResolvedFinalClass(className)
+	if refined.IsEmpty() || refined.String() == current.String() {
+		return map[string]Type{}
+	}
+	return map[string]Type{variable.Name: refined}
 }
 
 func applyConditionTrueScope(scope *functionScope, condition ast.Node, ctx *AnalysisContext) {
@@ -975,13 +1025,23 @@ func typeFromInstanceofTarget(node ast.Node, scope *functionScope) Type {
 
 func finishIfNodeScope(scope *functionScope, node *ast.IfNode, thenScope *functionScope, elseifScopes []*functionScope, elseScope *functionScope, ctx *AnalysisContext) {
 	applyTerminatingIfFalseScope(scope, node, ctx)
-	applyIfElseJoinScope(scope, node, thenScope, elseifScopes, elseScope)
+	applyIfElseJoinScope(scope, node, thenScope, elseifScopes, elseScope, ctx)
 	applyLazyInitPropertyScope(scope, node, ctx)
 	applyFalsyInitVariableScope(scope, node, thenScope)
 }
 
-func applyIfElseJoinScope(scope *functionScope, node *ast.IfNode, thenScope *functionScope, elseifScopes []*functionScope, elseScope *functionScope) {
-	if scope == nil || node == nil || node.Else == nil {
+func applyIfElseJoinScope(scope *functionScope, node *ast.IfNode, thenScope *functionScope, elseifScopes []*functionScope, elseScope *functionScope, ctx *AnalysisContext) {
+	if scope == nil || node == nil {
+		return
+	}
+	if node.Else == nil && len(node.ElseIfs) == 0 {
+		if !statementsExitCurrentBlock(node.Body) && len(variablesWithoutFinalInstanceofWhenFalse(node.Condition, scope, ctx)) > 0 {
+			falseScope := scopeForConditionFalse(scope, node.Condition, ctx)
+			joinFallthroughVariableTypes(scope, []*functionScope{thenScope, falseScope})
+		}
+		return
+	}
+	if node.Else == nil {
 		return
 	}
 	var fallthroughs []*functionScope

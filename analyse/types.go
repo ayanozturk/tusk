@@ -535,6 +535,49 @@ func dnfAlternativeIncludesClass(t Type, keys []string, className string) bool {
 	return false
 }
 
+// withoutResolvedFinalClass removes union alternatives containing a known
+// final class. Such alternatives cannot reach the false side of instanceof.
+func (t Type) withoutResolvedFinalClass(className string) Type {
+	if t.IsEmpty() {
+		return t
+	}
+	want := asciiLowerIdent(strings.TrimPrefix(className, `\`))
+	parts := make([]string, 0, len(t.alternatives))
+	changed := false
+	for _, alternative := range t.alternatives {
+		contains := false
+		members := make([]string, 0, len(alternative))
+		for _, key := range alternative {
+			atom, ok := t.atoms[key]
+			if !ok {
+				continue
+			}
+			if atom.kind == typeKindClass && asciiLowerIdent(strings.TrimPrefix(atom.display, `\`)) == want {
+				contains = true
+				break
+			}
+			members = append(members, atom.display)
+		}
+		if contains {
+			changed = true
+			continue
+		}
+		if len(members) == 0 {
+			continue
+		}
+		sort.Strings(members)
+		part := strings.Join(members, "&")
+		if len(members) > 1 {
+			part = "(" + part + ")"
+		}
+		parts = append(parts, part)
+	}
+	if !changed || len(parts) == 0 {
+		return t
+	}
+	return ParseType(strings.Join(parts, "|"))
+}
+
 func (t Type) hasClassAtom() bool {
 	for _, atom := range t.atoms {
 		if atom.kind == typeKindClass {

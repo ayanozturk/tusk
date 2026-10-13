@@ -42,6 +42,13 @@ Scope: stabilize the parser, analyser, CLI, and PHP Strom integration for a 1.0 
 - [x] Fix the reproduced Go 1.27.1 allocation-test and split-lines-cache failures.
 - [x] Validate the larger callable slice with exact fixtures, matched PSL/Symfony/
   Composer snapshots, lossless corpora, and resource measurements.
+- [x] Correct backed-enum argument inference across non-terminating `instanceof`
+  branches: exclude the final enum on the false path and join assignments with
+  the implicit else. Covered by an analyzer regression and the level-8
+  differential pack. Composer's 532-file level-8 snapshot is unchanged; Symfony
+  has two prior false `A.ARG.TYPE` findings removed at final `TreeNode` and
+  `Address` guards, both verified against their source branches. The reviewed-
+  corpus gate remains open.
 - [x] Deliver parser `48208dd1` through Strom `a43607a` and verify pinned
   and sibling-development server tests/vet on Go 1.23.12.
 - [ ] Continue reviewed-corpus triage: remaining engine-only PSL argument/return

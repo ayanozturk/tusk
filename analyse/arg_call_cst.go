@@ -275,6 +275,10 @@ func (w *argCallCSTWalker) finishIfScope(scope *functionScope, cond ast.Node, th
 		joinFallthroughVariableTypes(scope, fallthroughs)
 	}
 	if !hasElse && len(elseifNodes) == 0 && !w.cstBodyTerminates(thenBody) {
+		if !w.cstBodyExits(thenBody) && len(variablesWithoutFinalInstanceofWhenFalse(cond, scope, w.ctx)) > 0 {
+			falseScope := scopeForConditionFalse(scope, cond, w.ctx)
+			joinFallthroughVariableTypes(scope, []*functionScope{thenScope, falseScope})
+		}
 		w.applyIfSpecialScope(scope, cond, thenScope, thenBody)
 	}
 }

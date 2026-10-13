@@ -372,6 +372,24 @@ function falseBranch(int $value): void {
 	}
 }
 
+func TestArgumentTypesJoinEnumUnwrappingAcrossImplicitElse(t *testing.T) {
+	const source = `<?php
+	enum Month: int { case January = 1; }
+function requireInt(int $value): void {}
+function direct(Month|int $month): void { requireInt($month); }
+function useMonth(Month|int $month): void {
+	if ($month instanceof Month) {
+		$month = $month->value;
+	}
+	requireInt($month);
+}
+`
+	issues := runAnalysisLevelOnFiles(t, map[string]string{"enum-join.php": source}, 8)
+	if got := len(filterNonEmptyArgTypeIssues(issues)); got != 1 {
+		t.Fatalf("expected only the unrefined enum/int union control to report, got %#v", issues)
+	}
+}
+
 func TestArgumentTypesPreserveIntegerRefinementsThroughAssignments(t *testing.T) {
 	const source = `<?php
 /** @param int<5, 5> $value */

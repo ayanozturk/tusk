@@ -252,6 +252,13 @@
       "phpstanIdentifiers": []
     },
     {
+      "id": "argument-final-enum-instanceof-implicit-else",
+      "capability": "final enum exclusion and assignment join across an implicit else",
+      "file": "argument-final-enum-instanceof-implicit-else.php",
+      "engineCodes": [],
+      "phpstanIdentifiers": []
+    },
+    {
       "id": "known-method-exists-property-ternary",
       "capability": "is_object and method_exists guard property ternary",
       "file": "known-method-exists-property-ternary.php",
