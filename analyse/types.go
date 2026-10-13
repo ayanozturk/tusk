@@ -1164,6 +1164,11 @@ func canonicalizeDocType(raw string) string {
 }
 
 func splitTopLevelTypes(raw string, sep rune) []string {
+	// Most native/PHPDoc types are a single atom. Avoid walking every byte to
+	// track nesting when the delimiter is absent altogether.
+	if sep >= 0 && sep < 0x80 && strings.IndexByte(raw, byte(sep)) < 0 {
+		return []string{raw}
+	}
 	var parts []string
 	start := 0
 	depthAngle := 0
