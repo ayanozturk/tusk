@@ -74,13 +74,15 @@ func (c *boundedStringCache) store(key, value string) {
 }
 
 func (c *shardedStringCache) shard(key string) *boundedStringCache {
-	// Identifier keys are short. FNV-1a gives a stable, low-cost spread without
-	// putting all writes behind sync.Map's global miss promotion lock.
-	h := uint32(2166136261)
-	for i := 0; i < len(key); i++ {
-		h ^= uint32(key[i])
-		h *= 16777619
+	// Sample a few positions instead of hashing every byte: the cache's map
+	// still hashes the full key, while the shard only needs a stable spread.
+	h := uint32(len(key)) * 0x9e3779b1
+	if len(key) > 0 {
+		h ^= uint32(key[0]) * 0x85ebca6b
+		h ^= uint32(key[len(key)/2]) * 0xc2b2ae35
+		h ^= uint32(key[len(key)-1]) * 0x27d4eb2f
 	}
+	h ^= h >> 16
 	return &c.shards[h&(identLowerCacheShardCount-1)]
 }
 
