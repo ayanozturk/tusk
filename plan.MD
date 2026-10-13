@@ -62,6 +62,12 @@ Scope: stabilize the parser, analyser, CLI, and PHP Strom integration for a 1.0 
   snapshot parity and cold-run CV below 5%. See
   [WordPress analysis throughput](docs/benchmarks/2026-10-13-wordpress-analysis-throughput.md);
   this single-host result does not close the release-wide performance gate.
+- [x] Improve and measure WordPress method-resolution throughput. Reusing the
+  normalized class-lineage key raised matched cold full-pipeline throughput
+  1.54% and the timed index-plus-analysis kernel 2.44%, with exact issue
+  snapshot parity and cold-run CV below 5%. See
+  [WordPress resolver throughput](docs/benchmarks/2026-10-13-wordpress-resolver-throughput.md);
+  this single-host result does not close the release-wide performance gate.
 - [x] Deliver parser `48208dd1` through Strom `a43607a` and verify pinned
   and sibling-development server tests/vet on Go 1.23.12.
 - [ ] Continue reviewed-corpus triage: remaining engine-only PSL argument/return
