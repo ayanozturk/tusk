@@ -326,6 +326,50 @@ func TestGetIncludeFilesSkipsMissingDirectory(t *testing.T) {
 	}
 }
 
+func TestGetIncludeFilesIndexesComposerAutoloadDirsOutsideConfigPath(t *testing.T) {
+	root := t.TempDir()
+	composerJSON := `{
+  "autoload": {
+    "classmap": ["common/Classes/"],
+    "psr-4": {"RG\\": "common/Classes/"}
+  }
+}`
+	if err := os.WriteFile(filepath.Join(root, "composer.json"), []byte(composerJSON), 0644); err != nil {
+		t.Fatalf("write composer.json: %v", err)
+	}
+	legacyClass := filepath.Join(root, "common", "Classes", "Contact.class.php")
+	if err := os.MkdirAll(filepath.Dir(legacyClass), 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(legacyClass, []byte("<?php\nclass RG_User_Contact {}\n"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	projectPath := filepath.Join(root, "api-rg")
+	if err := os.MkdirAll(projectPath, 0755); err != nil {
+		t.Fatalf("mkdir project: %v", err)
+	}
+
+	cfg := &Config{
+		Path:       projectPath,
+		Extensions: []string{"php"},
+		Ignore:     []string{"vendor"},
+	}
+	includes, err := GetIncludeFiles(cfg)
+	if err != nil {
+		t.Fatalf("include scan: %v", err)
+	}
+	found := false
+	for _, f := range includes {
+		if f == legacyClass {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected composer autoload dir %q to be indexed, got %#v", legacyClass, includes)
+	}
+}
+
 func TestGetFilesToScan_Error(t *testing.T) {
 	cfg := &Config{
 		Path:       "/nonexistent/path/for/coverage",
