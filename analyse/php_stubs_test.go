@@ -58,3 +58,27 @@ func TestPHPStubCatalogFollowsLanguageVersion(t *testing.T) {
 		t.Fatal("expected NoDiscard in PHP 8.5 stubs")
 	}
 }
+
+func TestProjectIndexLoadsBaselineExtensionFunctions(t *testing.T) {
+	idx := NewProjectIndex()
+	functions := []string{
+		"checkdate", "date", "date_add", "date_create", "date_create_from_format",
+		"date_create_immutable", "date_create_immutable_from_format", "date_date_set",
+		"date_diff", "date_format", "date_get_last_errors", "date_interval_create_from_date_string",
+		"date_interval_format", "date_isodate_set", "date_modify", "date_offset_get",
+		"date_parse", "date_parse_from_format", "date_sub", "date_sun_info", "date_sunrise",
+		"date_sunset", "date_time_set", "date_timestamp_get", "date_timestamp_set",
+		"date_timezone_get", "date_timezone_set", "getdate", "gmmktime", "gmstrftime",
+		"idate", "localtime", "mktime", "strftime", "strtotime", "timezone_abbreviations_list",
+		"timezone_identifiers_list", "timezone_location_get", "timezone_name_from_abbr",
+		"timezone_name_get", "timezone_offset_get", "timezone_open", "timezone_transitions_get",
+		"timezone_version_get", "preg_filter", "preg_grep", "preg_replace_callback_array",
+		"json_last_error", "json_last_error_msg", "getrandmax", "lcg_value", "mt_getrandmax",
+		"rand", "srand", "token_get_all", "token_name",
+	}
+	for _, name := range functions {
+		if !idx.FunctionExists(name) {
+			t.Errorf("expected bundled baseline extension function %q", name)
+		}
+	}
+}
