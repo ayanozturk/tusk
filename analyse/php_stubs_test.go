@@ -13,11 +13,17 @@ func TestProjectIndexLoadsBundledPHPStubs(t *testing.T) {
 	if _, ok := idx.ResolveClass("ArrayObject"); !ok {
 		t.Fatal("expected bundled ArrayObject from SPL stubs")
 	}
+	if _, ok := idx.ResolveClass("GdImage"); !ok {
+		t.Fatal("expected bundled GdImage from GD stubs")
+	}
 	if _, ok := idx.ResolveMethod("DateTime", "createFromFormat"); !ok {
 		t.Fatal("expected DateTime::createFromFormat")
 	}
 	if !idx.FunctionExists("ord") || !idx.FunctionExists("pack") || !idx.FunctionExists("chr") {
 		t.Fatal("expected Standard library function stubs")
+	}
+	if !idx.FunctionExists("imagecreatetruecolor") {
+		t.Fatal("expected GD extension function stubs")
 	}
 	if !idx.ConstantExists("PHP_INT_MAX") || !idx.ConstantExists("STR_PAD_LEFT") {
 		t.Fatal("expected Standard library constant stubs")
