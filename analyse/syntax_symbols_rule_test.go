@@ -61,6 +61,33 @@ function run(): void {
     Real::{$m}();
 }
 `,
+		"expressionClassReceiver": `<?php
+class Helper {
+    const KIND = 1;
+    public static int $count = 0;
+    public static function make(): Helper {
+        return new Helper();
+    }
+}
+class Holder {
+    private ?Helper $helper = null;
+    private array $items = [];
+    public function build(): Helper {
+        return new Helper();
+    }
+    public function run(): void {
+        echo $this->helper::KIND;
+        echo $this->helper::$count;
+        echo $this->helper::class;
+        echo $this->helper::make();
+        echo $this->items['k']::KIND;
+        echo $this->build()::KIND;
+        echo $this->build()::make();
+        echo (new Helper())::KIND;
+        echo Missing::KIND;
+    }
+}
+`,
 		"instanceMethodCall": `<?php
 class Real {
     public function bar(): void {}
@@ -204,6 +231,9 @@ function run(Real $r): void {
 		"variableClassStaticCall": {},
 		"dynamicStaticCall": {
 			{Message: "Access to undefined static property Real::$.", Line: 7, Column: 5},
+		},
+		"expressionClassReceiver": {
+			{Message: "Access to constant Missing::KIND on an unknown class Missing.", Line: 24, Column: 14},
 		},
 		"instanceMethodCall": {},
 		"thisMethodCall": {

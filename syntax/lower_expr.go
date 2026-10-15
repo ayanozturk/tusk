@@ -746,14 +746,17 @@ func splitStaticMemberAccessParts(n *RedNode, file *File) (class, member string,
 				return true
 			}
 			if (isExprKind(k) || isNameKind(k)) && class == "" {
-				// Dynamic class expr — classic ClassConstFetch only stores string.
-				// VariableNode.TokenLiteral omits "$"; keep it so Level0/symbols
-				// treat `$var::method()` as a variable class, not bare `var`.
+				// Dynamic class expr — classic ClassConstFetch only stores a string.
+				// "$"-prefixed means "not a resolvable class name"; consumers skip it.
 				if e := lowerExprAt(file, green, offset); e != nil {
-					if v, ok := e.(*ast.VariableNode); ok {
+					switch v := e.(type) {
+					case *ast.VariableNode:
 						class = "$" + v.Name
-					} else {
+					case *ast.StringNode, *ast.StringLiteral:
 						class = e.TokenLiteral()
+					default:
+						// TokenLiteral of `$this->helper` is "helper", which reads as a class name.
+						class = "$"
 					}
 				}
 			}

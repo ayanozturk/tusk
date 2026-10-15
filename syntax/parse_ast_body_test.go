@@ -838,6 +838,53 @@ Bar::{$m->n}();
 	}
 }
 
+func TestParseASTStaticAccessReceiverNeverLeaksAsClassName(t *testing.T) {
+	cases := []struct {
+		receiver string
+		want     string
+	}{
+		{`Foo`, "Foo"},
+		{`static`, "static"},
+		{`$cls`, "$cls"},
+		{`'Foo'`, "Foo"},
+		{`$this->helper`, "$"},
+		{`$this->helper->inner`, "$"},
+		{`$a['k']`, "$"},
+		{`foo()`, "$"},
+		{`$o->get()`, "$"},
+		{`(new Foo)`, "$"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.receiver, func(t *testing.T) {
+			constNodes, diags := syntax.ParseAST([]byte("<?php\n$x = " + tc.receiver + "::KIND;\n"))
+			if len(diags) != 0 {
+				t.Fatalf("unexpected diags: %v", diags)
+			}
+			right := constNodes[0].(*ast.ExpressionStmt).Expr.(*ast.AssignmentNode).Right
+			fetch, ok := right.(*ast.ClassConstFetchNode)
+			if !ok {
+				t.Fatalf("constant access lowered to %T, want ClassConstFetchNode", right)
+			}
+			if fetch.Class != tc.want {
+				t.Fatalf("constant access class=%q want %q", fetch.Class, tc.want)
+			}
+
+			callNodes, diags := syntax.ParseAST([]byte("<?php\n" + tc.receiver + "::run();\n"))
+			if len(diags) != 0 {
+				t.Fatalf("unexpected diags: %v", diags)
+			}
+			call, ok := callNodes[0].(*ast.ExpressionStmt).Expr.(*ast.FunctionCallNode)
+			if !ok {
+				t.Fatalf("static call lowered to %T, want FunctionCallNode", callNodes[0].(*ast.ExpressionStmt).Expr)
+			}
+			ident, ok := call.Name.(*ast.IdentifierNode)
+			if !ok || ident.Value != tc.want+"::run" {
+				t.Fatalf("static call name=%#v want identifier %q", call.Name, tc.want+"::run")
+			}
+		})
+	}
+}
+
 func TestParseASTBracedStringInterpolation(t *testing.T) {
 	src := `<?php
 $s = "hi {$missing}";
