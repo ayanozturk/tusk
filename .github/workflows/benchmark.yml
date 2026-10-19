@@ -66,7 +66,7 @@ jobs:
                 EXCLUDES="splitter/vendor"
                 ;;
               wordpress-develop)
-                PATHS="src,tests,vendor"
+                PATHS="src,tests"
                 EXCLUDES="src/js"
                 ;;
               magento2)
