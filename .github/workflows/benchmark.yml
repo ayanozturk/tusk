@@ -62,7 +62,7 @@ jobs:
             echo "::group::benchmark $project"
             case "$project" in
               psl)
-                PATHS="docs,examples,packages,splitter,vendor/revolt"
+                PATHS="docs,examples,packages,splitter"
                 EXCLUDES="splitter/vendor"
                 ;;
               wordpress-develop)
