@@ -10,7 +10,7 @@ Scope: stabilize the parser, analyser, CLI, and PHP Strom integration for a 1.0 
 
 1. [x] Make the install/build and command-line documentation match the shipped CLI; add and maintain a 1.0 release checklist.
 2. [x] Freeze the supported Go versions, operating systems, architectures, PHP syntax scope, public Go API, configuration schema, and diagnostic/exit-code contracts in [docs/compatibility-1.0.md](docs/compatibility-1.0.md); CI explicitly builds the declared target matrix.
-3. [x] Run the correctness gates: full Go tests and vet, race tests, parser lossless and token-parity corpora, differential fixtures, fuzz smoke, and cross-platform builds. Go 1.23.12/Linux amd64 passed tests, vet, race, lexer parity, and all four 2-minute fuzz smokes; Symfony and WordPress identity/accounting were 100%; all six OS/architecture package builds passed locally and in CI at `82b69e45`. Broader analyzer corpus-quality gates remain tracked separately in [docs/releasing-1.0.md](docs/releasing-1.0.md).
+3. [x] Run the correctness gates: full Go tests and vet, race tests, parser lossless and token-parity corpora, differential fixtures, fuzz smoke, and cross-platform builds. Go 1.26.10/Linux amd64 passes full tests, vet, race, and `govulncheck` with zero reachable findings. Earlier Go 1.23.12 runs passed lexer parity and all four 2-minute fuzz smokes; Symfony and WordPress identity/accounting were 100%; all six OS/architecture package builds passed locally and in CI at `82b69e45`. Broader analyzer corpus-quality gates remain tracked separately in [docs/releasing-1.0.md](docs/releasing-1.0.md).
 4. [ ] Close the reviewed-corpus diagnostic-quality gate. Thresholds, method, pinned fixture results, and a reproducible dependency-aware PSL comparison are published in [docs/reviewed-corpus-quality.md](docs/reviewed-corpus-quality.md); exact fixtures pass, while the PSL corpus gate remains blocked on review/disposition of thousands of differences. Continue triaging level-8 argument and return-type findings after the larger callable-semantics slice below.
 5. [ ] Maintain and gradually improve full-analysis and CLI performance for each pinned workload, carrying forward the best accepted result as changes are made.
 6. [ ] Review compatibility and migration notes, supported limitations, module versioning, license/dependency notices, reproducible release artifacts, and rollback instructions.
@@ -69,7 +69,7 @@ Scope: stabilize the parser, analyser, CLI, and PHP Strom integration for a 1.0 
   [WordPress resolver throughput](docs/benchmarks/2026-10-13-wordpress-resolver-throughput.md);
   this single-host result does not close the release-wide performance gate.
 - [x] Deliver parser `48208dd1` through Strom `a43607a` and verify pinned
-  and sibling-development server tests/vet on Go 1.23.12.
+  and sibling-development server tests/vet on Go 1.26.10.
 - [ ] Continue reviewed-corpus triage: remaining engine-only PSL argument/return
   families contain 356 and 109 findings. Structured parameter binding, dependent
   bounds, complex callable bodies, and shared integer-range normalization remain

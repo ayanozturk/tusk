@@ -8,9 +8,9 @@ release checklist.
 
 ## Go toolchain and build targets
 
-- **Minimum Go version:** Go 1.23, matching the `go` directive in `go.mod`.
-  There is no declared maximum Go version. The release build uses the Go 1.23
-  toolchain line or a later compatible toolchain.
+- **Minimum Go version:** Go 1.26, matching the `go` directive in `go.mod`.
+  There is no declared maximum Go version. Builds use the patched Go 1.26.10
+  toolchain or a later compatible toolchain.
 - **Operating systems:** Linux, macOS, and Windows.
 - **Architectures:** `amd64` and `arm64` on each supported operating system.
 - **Validation boundary:** CI runs the full tests and vet on Linux/amd64. CI

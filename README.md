@@ -23,7 +23,7 @@ The analyzer is under active development; see [plan.MD](plan.MD) for the current
 
 ## Installation
 
-Building from source requires Go 1.23 or newer. GNU Make is needed for the `make build` command.
+Building from source requires Go 1.26 or newer. GNU Make is needed for the `make build` command.
 
 ```bash
 git clone https://github.com/ayanozturk/tusk.git
