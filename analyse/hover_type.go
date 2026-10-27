@@ -94,6 +94,12 @@ func findHoverTypeMatch(nodes []ast.Node, query hoverTypeQuery, ctx *AnalysisCon
 				walk(methodNode, enumClass)
 			}
 		case *ast.FunctionNode:
+			// considerHoverTypeMatch only accepts nodes on the query's own
+			// line, so a function whose known line span excludes that line
+			// cannot yield a match; skip its (expensive) type inference.
+			if n.EndPos.Line > 0 && (query.line < n.Pos.Line || query.line > n.EndPos.Line) {
+				return
+			}
 			scope := analysisFunctionScope(ctx, class, n, fileCtx)
 			walkStatementsForHoverTypes(n.Body, scope, ctx, query, &best)
 		case *ast.NamespaceNode:

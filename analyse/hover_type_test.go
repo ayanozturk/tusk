@@ -211,3 +211,40 @@ func parseHoverFixture(t *testing.T, php string) []ast.Node {
 	}
 	return nodes
 }
+
+func TestInferHoverTargetOnlyMatchesEnclosingFunctionLine(t *testing.T) {
+	nodes := parseHoverFixture(t, `<?php
+function first() {
+    $a = 1;
+    return $a;
+}
+function second() {
+    $b = "x";
+    return $b;
+}
+class K {
+    public function m() {
+        $c = 2.5;
+        return $c;
+    }
+}`)
+	returned := func(fn *ast.FunctionNode) *ast.VariableNode {
+		return fn.Body[len(fn.Body)-1].(*ast.ReturnNode).Expr.(*ast.VariableNode)
+	}
+	targets := []*ast.VariableNode{
+		returned(nodes[0].(*ast.FunctionNode)),
+		returned(nodes[1].(*ast.FunctionNode)),
+		returned(nodes[2].(*ast.ClassNode).Methods[0].(*ast.FunctionNode)),
+	}
+	for _, v := range targets {
+		pos := v.GetPos()
+		target, ok := InferHoverTargetAtPosition(nodes, pos.Line, pos.Column, v.Name, nil)
+		if !ok || target.Kind != HoverTargetVariable || target.Type == "" {
+			t.Errorf("$%s at %d:%d: got %#v, %v; want a typed variable match", v.Name, pos.Line, pos.Column, target, ok)
+		}
+	}
+	// A line outside every function must not match, even for a known name.
+	if target, ok := InferHoverTargetAtPosition(nodes, 100, 1, "a", nil); ok {
+		t.Errorf("expected no match outside any function, got %#v", target)
+	}
+}
