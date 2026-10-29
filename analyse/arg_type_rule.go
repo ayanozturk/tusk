@@ -1662,9 +1662,21 @@ func checkFunctionCallArgTypes(call *ast.FunctionCallNode, scope *functionScope,
 	if !ok || len(function.Params) == 0 {
 		return
 	}
+	params := append([]ResolvedParam(nil), function.Params...)
+	templateBindings := bindCallSiteFunctionTemplates(function, call.Args, scope, ctx)
+	for index, name := range function.TemplateParams {
+		if index < len(function.TemplateBounds) && strings.TrimSpace(function.TemplateBounds[index]) != "" {
+			templateBindings[name] = function.TemplateBounds[index]
+		}
+	}
+	for index := range params {
+		params[index].Type = ApplyTemplateBindings(params[index].Type, templateBindings)
+		params[index].CallableReturnType = ApplyTemplateBindings(params[index].CallableReturnType, templateBindings)
+		params[index].CallableSignature = ApplyTemplateBindings(params[index].CallableSignature, templateBindings)
+	}
 	checkResolvedCallArgTypes("Function "+function.Name, ResolvedMethod{
 		Name:           function.Name,
-		Params:         function.Params,
+		Params:         params,
 		TemplateParams: function.TemplateParams,
 		TemplateBounds: function.TemplateBounds,
 	}, call.Args, scope, ctx, filename, issues, "")
@@ -1805,6 +1817,49 @@ func argumentExpectedTypeAcceptsActual(expected, actual Type, scope *functionSco
 	return expected.AcceptsWithContext(actual, scope, ctx)
 }
 
+func genericArgumentTypeAccepts(expectedRaw string, expr ast.Node, scope *functionScope, ctx *AnalysisContext) (bool, bool) {
+	expected, ok := parseExactGenericTypeFromString(strings.TrimSpace(expectedRaw))
+	if !ok {
+		return false, false
+	}
+	actual, ok := genericContextForArgument(expr, scope)
+	if !ok {
+		return false, false
+	}
+
+	ft := fileTypeContextForScope(scope)
+	if isBuiltinArrayGeneric(expected.ClassName) && isBuiltinArrayGeneric(actual.ClassName) {
+		expectedKey, expectedValue, expectedOK := iterableTypesFromGeneric(expected)
+		actualKey, actualValue, actualOK := iterableTypesFromGeneric(actual)
+		if !expectedOK || !actualOK {
+			return false, false
+		}
+		if len(expected.TypeArguments) == 1 {
+			return phpDocTypeIsSubtype(actualValue.String(), expected.TypeArguments[0], ft, ctx), true
+		}
+		if len(expected.TypeArguments) == 2 {
+			return phpDocTypeIsSubtype(actualKey.String(), expectedKey.String(), ft, ctx) &&
+				phpDocTypeIsSubtype(actualValue.String(), expectedValue.String(), ft, ctx), true
+		}
+		return false, false
+	}
+
+	actualRaw := genericInstanceTypeString(actual)
+	if !samePHPDocClass(expected.ClassName, actual.ClassName, ft, ctx) {
+		inherited, found := inheritedPHPDocGeneric(actual, expected.ClassName, ft, ctx, 0, make(map[string]struct{}))
+		if !found {
+			return false, false
+		}
+		actualRaw = genericInstanceTypeString(inherited)
+	}
+	expectedRaw = genericInstanceTypeString(expected)
+	return phpDocTypeIsSubtype(actualRaw, expectedRaw, ft, ctx), true
+}
+
+func genericInstanceTypeString(instance GenericInstance) string {
+	return instance.ClassName + "<" + strings.Join(instance.TypeArguments, ", ") + ">"
+}
+
 func checkResolvedCallArgTypes(target string, method ResolvedMethod, args []ast.Node, scope *functionScope, ctx *AnalysisContext, filename string, issues *[]AnalysisIssue, calleeClass string) {
 	if len(method.Params) == 0 {
 		return
@@ -1897,12 +1952,15 @@ func checkResolvedCallArgTypes(target string, method ResolvedMethod, args []ast.
 				}
 			}
 		}
-		if !signatureMismatch && argumentExpectedTypeAcceptsActual(expected, actual, scope, ctx) {
+		genericCompatible, hasGenericContract := genericArgumentTypeAccepts(param.Type, argExpr, scope, ctx)
+		if !signatureMismatch && (!hasGenericContract || genericCompatible) && argumentExpectedTypeAcceptsActual(expected, actual, scope, ctx) {
 			usedParams[paramIndex] = struct{}{}
 			continue
 		}
 		minimumLevel := argumentTypeIssueMinimumLevel(expected, actual, scope, ctx)
-		if signatureMismatch {
+		if genericCompatible == false && hasGenericContract {
+			minimumLevel = 5
+		} else if signatureMismatch {
 			minimumLevel = 5
 		}
 		if !analysisLevelAtLeast(ctx, minimumLevel) {
@@ -1918,6 +1976,12 @@ func checkResolvedCallArgTypes(target string, method ResolvedMethod, args []ast.
 		}
 		if actualLabel == "" {
 			actualLabel = "mixed"
+		}
+		if hasGenericContract && !genericCompatible {
+			expectedLabel = param.Type
+			if generic, ok := genericContextForArgument(argExpr, scope); ok {
+				actualLabel = genericInstanceTypeString(generic)
+			}
 		}
 
 		pos := argExpr.GetPos()

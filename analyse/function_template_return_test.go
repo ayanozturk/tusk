@@ -78,6 +78,87 @@ func TestFunctionTemplateReturnBindingBoundaries(t *testing.T) {
 	}
 }
 
+func TestFunctionTemplateBindingFromStructuredGenericParameters(t *testing.T) {
+	function := ResolvedFunction{
+		TemplateParams: []string{"Value"},
+		Params:         []ResolvedParam{{Name: "values", Type: "list<Value>"}},
+	}
+	scope := &functionScope{}
+	scope.setGenericContext("values", GenericInstance{ClassName: "list", TypeArguments: []string{"string"}})
+	if got := bindCallSiteFunctionTemplates(function, []ast.Node{&ast.VariableNode{Name: "values"}}, scope, nil)["Value"]; got != "string" {
+		t.Fatalf("list template binding = %q, want string", got)
+	}
+
+	function.Params[0].Type = "array<Value>"
+	scope.setGenericContext("values", GenericInstance{ClassName: "array", TypeArguments: []string{"int", "string"}})
+	if got := bindCallSiteFunctionTemplates(function, []ast.Node{&ast.VariableNode{Name: "values"}}, scope, nil)["Value"]; got != "string" {
+		t.Fatalf("array value template binding = %q, want string", got)
+	}
+
+	function.Params[0].Type = "Box<list<Value>>"
+	scope.setGenericContext("values", GenericInstance{ClassName: "Box", TypeArguments: []string{"list<string>"}})
+	if got := bindCallSiteFunctionTemplates(function, []ast.Node{&ast.VariableNode{Name: "values"}}, scope, nil)["Value"]; got != "string" {
+		t.Fatalf("nested generic template binding = %q, want string", got)
+	}
+
+	function.Params[0].Type = "list<Value>"
+	scope.setGenericContext("values", GenericInstance{ClassName: "Collection", TypeArguments: []string{"string"}})
+	if got := bindCallSiteFunctionTemplates(function, []ast.Node{&ast.VariableNode{Name: "values"}}, scope, nil)["Value"]; got != "mixed" {
+		t.Fatalf("incompatible generic shape must remain conservative, got %q", got)
+	}
+}
+
+func TestFunctionTemplateReturnBindsStructuredParameter(t *testing.T) {
+	const source = `<?php
+/**
+ * @template Value
+ * @param list<Value> $values
+ * @return Value
+ */
+function firstValue(array $values) { return $values[0]; }
+
+/** @param list<string> $values */
+function clean(array $values): string { return firstValue($values); }
+
+/** @param list<string> $values */
+function wrong(array $values): int { return firstValue($values); }
+`
+	issues := runAnalysisLevelOnFiles(t, map[string]string{"structured-template.php": source}, 5)
+	var returns []AnalysisIssue
+	for _, issue := range issues {
+		if issue.Code == "A.RETURN.TYPE" {
+			returns = append(returns, issue)
+		}
+	}
+	if len(returns) != 1 || returns[0].Line != 13 {
+		t.Fatalf("want only the structured-template string-to-int return mismatch at line 13, got %#v", returns)
+	}
+}
+
+func TestStructuredFunctionTemplateArgumentsRespectDeclaredBounds(t *testing.T) {
+	const source = `<?php
+/**
+ * @template Value of int
+ * @param list<Value> $values
+ * @return Value
+ */
+function boundedValue(array $values) { return $values[0]; }
+
+/** @param list<string> $values */
+function wrong(array $values): string { return boundedValue($values); }
+`
+	issues := runAnalysisLevelOnFiles(t, map[string]string{"structured-template-bound.php": source}, 5)
+	var mismatches []AnalysisIssue
+	for _, issue := range issues {
+		if issue.Code == "A.ARG.TYPE" {
+			mismatches = append(mismatches, issue)
+		}
+	}
+	if len(mismatches) != 1 || mismatches[0].Line != 10 {
+		t.Fatalf("want one bounded structured-template argument mismatch at line 10, got %#v", mismatches)
+	}
+}
+
 func TestFunctionTemplateReturnBindsCallableVariable(t *testing.T) {
 	const source = `<?php
 /**

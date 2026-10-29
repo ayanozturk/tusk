@@ -2,83 +2,32 @@
 
 Status: in progress
 
-Roadmap source: long-term item 7 (full-analyser release), now explicitly selected by the user
+Roadmap source: short-term item 2, “Complete the semantic and type system,” explicitly reprioritized by the user ahead of the active 1.0 stabilization work.
 
-Scope: stabilize the parser, analyser, CLI, and PHP Strom integration for a 1.0 release. Do not publish a release until the documented acceptance gates pass.
+Scope: complete PHPDoc/type semantics, control-flow and variable/property flow, interprocedural summaries with precise invalidation, and testable semantic extension contracts. Preserve parser losslessness, deterministic diagnostics, public API compatibility, and PHP Strom integration. The 1.0 release remains blocked and deferred; its acceptance evidence and outstanding gates remain in [docs/releasing-1.0.md](docs/releasing-1.0.md).
 
 ## Work sequence
 
-1. [x] Make the install/build and command-line documentation match the shipped CLI; add and maintain a 1.0 release checklist.
-2. [x] Freeze the supported Go versions, operating systems, architectures, PHP syntax scope, public Go API, configuration schema, and diagnostic/exit-code contracts in [docs/compatibility-1.0.md](docs/compatibility-1.0.md); CI explicitly builds the declared target matrix.
-3. [x] Run the correctness gates: full Go tests and vet, race tests, parser lossless and token-parity corpora, differential fixtures, fuzz smoke, and cross-platform builds. Go 1.26.10/Linux amd64 passes full tests, vet, race, and `govulncheck` with zero reachable findings. Earlier Go 1.23.12 runs passed lexer parity and all four 2-minute fuzz smokes; Symfony and WordPress identity/accounting were 100%; all six OS/architecture package builds passed locally and in CI at `82b69e45`. Broader analyzer corpus-quality gates remain tracked separately in [docs/releasing-1.0.md](docs/releasing-1.0.md).
-4. [ ] Close the reviewed-corpus diagnostic-quality gate. Thresholds, method, pinned fixture results, and a reproducible dependency-aware PSL comparison are published in [docs/reviewed-corpus-quality.md](docs/reviewed-corpus-quality.md); exact fixtures pass, while the PSL corpus gate remains blocked on review/disposition of thousands of differences. Continue triaging level-8 argument and return-type findings after the larger callable-semantics slice below.
-5. [ ] Maintain and gradually improve full-analysis and CLI performance for each pinned workload, carrying forward the best accepted result as changes are made.
-6. [ ] Review compatibility and migration notes, supported limitations, module versioning, license/dependency notices, reproducible release artifacts, and rollback instructions.
-7. [ ] Only after all gates pass, prepare a `v1.0.0` tag and release artifacts for final review. Publication remains a separate explicit action.
+1. [ ] Complete PHPDoc and generic type semantics: templates, bounds, variance, generic inheritance, aliases/imports, conditional and indexed types, key/value projections, callable signatures, shapes, non-empty and literal types, and integer ranges. Initial slice: infer function templates nested in supported generic parameters from known argument generic contexts, while retaining declared bounds.
+2. [ ] Extend CFG and variable/property flow through loops, exceptions, generators, closures, references, property initialization, readonly constraints, and dynamic properties. Keep state joins deterministic and add behavioral regression tests for each supported path.
+3. [ ] Add interprocedural summaries and invalidate dependants only when exported semantic facts change. Cover cache identity, dependency invalidation, and concurrent deterministic output.
+4. [ ] Define testable extension contracts for dynamic returns, assertions, generated members, reflection, service containers, and ORMs. Keep extension behavior isolated, documented, and independently testable.
+5. [ ] Validate the completed semantic slices with focused unit and differential fixtures, relevant reviewed corpora, snapshot/incremental tests, and pinned plus sibling-development PHP Strom tests. Update capability documentation and release-plan evidence to reflect actual support.
 
-## Active evidence and constraints
+## First milestone acceptance
 
-- Release gates, current blockers, and commands: [docs/releasing-1.0.md](docs/releasing-1.0.md).
-- Performance is continuous release-quality work: preserve the current best accepted full-analysis and CLI behavior, and improve it incrementally with each change.
-- Existing CI runs `go test ./...`, `go vet ./...`, and short parser/PHPDoc fuzz jobs on Linux. It does not yet establish cross-platform execution or the full corpus release gates.
-- Tusk is the only user-facing binary and config name: `make build` emits `tusk`/`tusk.exe`, and automatic config discovery accepts only `tusk.yaml`. The README, source-run examples, command names, output source, and integration comments now use Tusk consistently. `go test ./...`, `go vet ./...`, native/Windows builds, and representative CLI flows pass.
-- Preserve lossless parsing, deterministic diagnostics, file accounting, public compatibility, and existing rule semantics. Every behavior fix needs a regression case and current rule documentation where applicable.
+- Structured PHPDoc generic parameters infer templates only from matching, known argument structure; unresolved or incompatible shapes remain conservative and respect declared bounds.
+- Clean and mismatching argument/return fixtures cover the supported forms and compare against the reference analyser at the exact rule level.
+- Existing generic, callable, shape, alias, conditional-return, differential, and snapshot tests remain green.
+- Any newly supported diagnostic behavior has a regression fixture and matching rule/capability documentation.
+- No public API change is made without compatibility review and pinned/sibling-development PHP Strom validation.
 
-## Cross-repository rename
+The initial structured-function slice has unit regressions and engine differential
+fixtures. The PHPStan executable is not available in this checkout, so reference
+comparison for the new cases remains open; this does not complete the first
+milestone or the broader semantic/type-system roadmap item.
 
-- [x] Rename the GitHub repository and canonical Go module to
-  `github.com/ayanozturk/tusk`; update parser and PHP Strom imports, dependency
-  pin, local development paths, repository links, and documentation. Verified with
-  parser and pinned/development Strom builds and vets.
+## Deferred release work
 
-## Current diagnostic-quality work
-
-- [x] Bind named-function direct templates and supported callable returns.
-- [x] Normalize callable/Closure contracts, preserve callback metadata through
-  inheritance and caching, and check known signature variance/arity at level 5.
-- [x] Infer unannotated arrows and simple closures with isolated parameter/capture
-  scopes and bounded nesting; preserve method-result templates across initializer
-  callbacks and honor supported return assertions after CST lowering.
-- [x] Fix the reproduced Go 1.27.1 allocation-test and split-lines-cache failures.
-- [x] Validate the larger callable slice with exact fixtures, matched PSL/Symfony/
-  Composer snapshots, lossless corpora, and resource measurements.
-- [x] Correct backed-enum argument inference across non-terminating `instanceof`
-  branches: exclude the final enum on the false path and join assignments with
-  the implicit else. Covered by an analyzer regression and the level-8
-  differential pack. Composer's 532-file level-8 snapshot is unchanged; Symfony
-  has two prior false `A.ARG.TYPE` findings removed at final `TreeNode` and
-  `Address` guards, both verified against their source branches. The reviewed-
-  corpus gate remains open.
-- [x] Improve and measure WordPress index throughput. The no-delimiter type
-  splitter fast path raised parent-timed index throughput 2.44% over 20 paired
-  eight-worker runs; eight workers also delivered 21.9% more cold full-pipeline
-  throughput than four on the current Mac. Same-worker full-analysis throughput
-  stayed neutral, and exact diagnostic snapshots matched. See
-  [index and analysis throughput](docs/benchmarks/2026-10-13-index-analysis-throughput.md);
-  this single-host result does not close the release-wide performance gate.
-- [x] Improve and measure WordPress analysis throughput. Sampling a few bytes
-  for identifier-cache sharding raised matched cold full-pipeline throughput
-  4.36% and the timed index-plus-analysis kernel 4.35%, with exact issue
-  snapshot parity and cold-run CV below 5%. See
-  [WordPress analysis throughput](docs/benchmarks/2026-10-13-wordpress-analysis-throughput.md);
-  this single-host result does not close the release-wide performance gate.
-- [x] Improve and measure WordPress method-resolution throughput. Reusing the
-  normalized class-lineage key raised matched cold full-pipeline throughput
-  1.54% and the timed index-plus-analysis kernel 2.44%, with exact issue
-  snapshot parity and cold-run CV below 5%. See
-  [WordPress resolver throughput](docs/benchmarks/2026-10-13-wordpress-resolver-throughput.md);
-  this single-host result does not close the release-wide performance gate.
-- [x] Deliver parser `48208dd1` through Strom `a43607a` and verify pinned
-  and sibling-development server tests/vet on Go 1.26.10.
-- [ ] Continue reviewed-corpus triage: remaining engine-only PSL argument/return
-  families contain 356 and 109 findings. Structured parameter binding, dependent
-  bounds, complex callable bodies, and shared integer-range normalization remain
-  partial. Review the newly exposed Symfony findings before declaring that gate passed.
-- [ ] Establish stable accepted resource baselines for every release workload;
-  the larger callable measurement is recorded separately from correctness evidence.
-
-Current acceptance evidence and remaining diagnostic dispositions are in
-[reviewed corpus quality](docs/reviewed-corpus-quality.md); the matched resource
-protocol is in [callable slice measurements](docs/benchmarks/2026-10-09-callable-semantics.md).
-The 1.0 stabilization plan remains active. This completed slice does not authorize
-release publication or promotion of a separate roadmap item.
+- The full-analyser 1.0 release is not authorized by this reprioritization. Continue its separate correctness, reviewed-corpus quality, performance/resource, compatibility, packaging, and publication gates only after this roadmap item is completed or the user changes priority again.
+- Do not claim completion based on unit tests alone: keep full corpus accounting, differential parity, race safety, and reproducible performance evidence as release gates.

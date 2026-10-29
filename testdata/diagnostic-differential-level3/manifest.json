@@ -374,6 +374,24 @@
       ]
     },
     {
+      "id": "function-template-structured-return-clean",
+      "capability": "generic function returns bind templates from structured PHPDoc iterable parameters",
+      "file": "function-template-structured-return-clean.php",
+      "engineCodes": [],
+      "phpstanIdentifiers": []
+    },
+    {
+      "id": "function-template-structured-return-mismatch",
+      "capability": "generic function returns bind templates from structured PHPDoc iterable parameters",
+      "file": "function-template-structured-return-mismatch.php",
+      "engineCodes": [
+        "A.RETURN.TYPE"
+      ],
+      "phpstanIdentifiers": [
+        "return.type"
+      ]
+    },
+    {
       "id": "callable-return-assertion-clean",
       "capability": "callable generic method binding, inherited signatures and explicit return assertions",
       "file": "callable-return-assertion-clean.php",

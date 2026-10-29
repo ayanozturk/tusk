@@ -673,10 +673,9 @@ func paramsFromNodesWithPHPDoc(nodes []ast.Node, doc *ast.PHPDocNode, ft FileTyp
 		typ = expandPHPDocTypeAliases(typ, aliases)
 		callableReturn := normalizeTemplateAwareType(rawCallableReturnType(typ), ft, templates)
 		callableContract := normalizedCallableContract(typ, ft, templates)
-		// Composite types that mention call-site templates stay mixed until
-		// argument inference can bind them. Bare template names and
-		// class-string<T> stay so find(Foo::class) can substitute T.
-		if phpDocUsesTemplate(typ, callableTemplates) && !isKnownTemplateName(typ, templates) && !isKnownTemplateName(typ, callableTemplates) && !isClassStringOfKnownTemplate(typ, templates, callableTemplates) {
+		// Preserve composite types when their templates are available to call-site
+		// inference; otherwise keep declaration-local templates conservative.
+		if phpDocUsesTemplate(typ, callableTemplates) && !isKnownTemplateName(typ, templates) && !isKnownTemplateName(typ, callableTemplates) && !isClassStringOfKnownTemplate(typ, templates, callableTemplates) && !phpDocUsesTemplate(typ, templates) {
 			typ = "mixed"
 		}
 		params = append(params, ResolvedParam{

@@ -8,7 +8,7 @@
 
 - **Introduced at this level:** 5 registered levelled rules: `A.PROP.TYPE`, `A.RETURN.NEVER`, `A.RETURN.TYPE`, `A.RETURN.VOID`, and `Level3.ThrowType`.
 - **Cumulative registered levelled rules:** 26. The assignment, binary-operation, void-purity, method, and PHPDoc rules from level 2 are cumulative and are not introduced here.
-- **Checked-in differential pack:** 52 cases in `testdata/diagnostic-differential-level3`.
+- **Checked-in differential pack:** 54 cases in `testdata/diagnostic-differential-level3`.
 
 ## Registered rules, one by one
 
@@ -76,12 +76,14 @@ function countItems(): int { return 3; }
 
 Named generic function returns use call-site bindings from direct template
 arguments and declared or supported inferred callable returns, including imported function aliases.
-The level-3 clean/mismatch fixtures cover `preserve($value)` in an integer-returning
-wrapper. Repeated direct arguments join their inferred types; unresolved bindings
-use a bound or `mixed`. Supported unannotated arrows and simple closures infer returns in isolated
+The level-3 clean/mismatch fixtures cover `preserve($value)` and a `Value`
+template nested in a known `list<Value>` or array parameter structure. Repeated
+direct arguments join their inferred types; unresolved or structurally unknown
+bindings use a bound or `mixed`. Supported unannotated arrows and simple closures infer returns in isolated
 parameter/capture scopes. Method direct/callback template binding also preserves
 arbitrary declared template names and inherited callback metadata. Structured
-parameter inference and complex callback control flow remain partial.
+method-template inference, unsupported generic structures, and complex callback
+control flow remain partial.
 
 Anonymous `@var` annotations immediately before a return, or named assertions
 matching the returned variable, refine its observed type after CST lowering.

@@ -770,10 +770,9 @@ func inferFunctionCallType(n *ast.FunctionCallNode, scope *functionScope, ctx *A
 	return MixedType()
 }
 
-// bindCallSiteFunctionTemplates binds declared, direct template parameters
-// and the return template of callable parameters.
-// Structured parameter inference is deliberately left to a future slice;
-// unresolved templates use their bound (or mixed), never a fabricated class.
+// bindCallSiteFunctionTemplates binds direct and structurally nested templates
+// from known argument types, as well as the return template of callable parameters.
+// Unresolved templates use their bound (or mixed), never a fabricated class.
 func bindCallSiteFunctionTemplates(function ResolvedFunction, args []ast.Node, scope *functionScope, ctx *AnalysisContext) map[string]string {
 	if len(function.TemplateParams) == 0 {
 		return nil
@@ -809,13 +808,15 @@ func bindCallSiteFunctionTemplates(function ResolvedFunction, args []ast.Node, s
 		if index < 0 {
 			continue
 		}
-		name := strings.TrimSpace(function.Params[index].Type)
+		param := function.Params[index]
+		name := strings.TrimSpace(param.Type)
 		var actual Type
 		if _, ok := declared[name]; ok {
 			actual = inferArgumentTypeWithFacts("", argumentValue(arg), scope, ctx)
 		} else {
 			name = function.Params[index].CallableReturnType
 			if _, ok := declared[name]; !ok {
+				inferStructuredCallSiteTemplates(param.Type, argumentValue(arg), scope, ctx, declared, inferred)
 				continue
 			}
 			actual = inferCallableInvocationReturn(argumentValue(arg), scope, ctx)
@@ -832,6 +833,128 @@ func bindCallSiteFunctionTemplates(function ResolvedFunction, args []ast.Node, s
 		declared[name] = actual.String()
 	}
 	return declared
+}
+
+const callSiteTemplateInferenceDepthLimit = 32
+
+func inferStructuredCallSiteTemplates(raw string, expr ast.Node, scope *functionScope, ctx *AnalysisContext, declared map[string]string, inferred map[string]Type) {
+	raw = stripBalancedOuterTypeParens(strings.TrimSpace(raw))
+	expected, ok := parseExactGenericTypeFromString(raw)
+	if !ok {
+		return
+	}
+	actual, ok := genericContextForArgument(expr, scope)
+	if !ok {
+		return
+	}
+
+	inferMatchedCallSiteTemplates(expected, actual, scope, ctx, declared, inferred, 0)
+}
+
+func inferMatchedCallSiteTemplates(expected, actual GenericInstance, scope *functionScope, ctx *AnalysisContext, declared map[string]string, inferred map[string]Type, depth int) {
+	if depth >= callSiteTemplateInferenceDepthLimit {
+		return
+	}
+
+	expectedArgs, actualArgs, ok := matchingCallSiteGenericArguments(expected, actual, fileTypeContextForScope(scope), ctx)
+	if !ok {
+		return
+	}
+	for index := range expectedArgs {
+		expectedArg := stripBalancedOuterTypeParens(strings.TrimSpace(expectedArgs[index]))
+		actualArg := stripBalancedOuterTypeParens(strings.TrimSpace(actualArgs[index]))
+		if name, isTemplate := declaredTemplateKey(expectedArg, declared); isTemplate {
+			mergeCallSiteTemplate(inferred, name, callSiteTemplateArgumentType(actualArg, scope))
+			continue
+		}
+		expectedNested, expectedOK := parseExactGenericTypeFromString(expectedArg)
+		actualNested, actualOK := parseExactGenericTypeFromString(actualArg)
+		if expectedOK && actualOK {
+			inferMatchedCallSiteTemplates(expectedNested, actualNested, scope, ctx, declared, inferred, depth+1)
+		}
+	}
+}
+
+func matchingCallSiteGenericArguments(expected, actual GenericInstance, ft FileTypeContext, ctx *AnalysisContext) ([]string, []string, bool) {
+	if isBuiltinArrayGeneric(expected.ClassName) && isBuiltinArrayGeneric(actual.ClassName) {
+		return iterableTemplateArguments(expected, actual)
+	}
+	if !samePHPDocClass(expected.ClassName, actual.ClassName, ft, ctx) {
+		inherited, ok := inheritedPHPDocGeneric(actual, expected.ClassName, ft, ctx, 0, make(map[string]struct{}))
+		if !ok {
+			return nil, nil, false
+		}
+		actual = inherited
+	}
+	if len(expected.TypeArguments) != len(actual.TypeArguments) {
+		return nil, nil, false
+	}
+	return expected.TypeArguments, actual.TypeArguments, true
+}
+
+func declaredTemplateKey(name string, declared map[string]string) (string, bool) {
+	name = strings.TrimSpace(name)
+	for candidate := range declared {
+		if strings.EqualFold(name, candidate) {
+			return candidate, true
+		}
+	}
+	return "", false
+}
+
+func genericContextForArgument(expr ast.Node, scope *functionScope) (GenericInstance, bool) {
+	variable, ok := expr.(*ast.VariableNode)
+	if !ok || scope == nil {
+		return GenericInstance{}, false
+	}
+	instance, ok := scope.genericContext[variable.Name]
+	return instance, ok
+}
+
+func fileTypeContextForScope(scope *functionScope) FileTypeContext {
+	if scope == nil || scope.functionScopeContext == nil {
+		return FileTypeContext{}
+	}
+	return scope.typeCtx
+}
+
+func iterableTemplateArguments(expected, actual GenericInstance) ([]string, []string, bool) {
+	expectedKey, expectedValue, expectedOK := iterableTypesFromGeneric(expected)
+	actualKey, actualValue, actualOK := iterableTypesFromGeneric(actual)
+	if !expectedOK || !actualOK {
+		return nil, nil, false
+	}
+	if len(expected.TypeArguments) == 1 {
+		return expected.TypeArguments, []string{actualValue.String()}, true
+	}
+	if len(expected.TypeArguments) == 2 {
+		return []string{expectedKey.String(), expectedValue.String()}, []string{actualKey.String(), actualValue.String()}, true
+	}
+	return nil, nil, false
+}
+
+func mergeCallSiteTemplate(inferred map[string]Type, name string, actual Type) {
+	name = strings.TrimSpace(name)
+	if name == "" || actual.IsEmpty() {
+		return
+	}
+	if previous, ok := inferred[name]; ok {
+		actual = unionInferredTypes(previous, actual)
+	}
+	inferred[name] = actual
+}
+
+func callSiteTemplateArgumentType(raw string, scope *functionScope) Type {
+	raw = strings.TrimSpace(raw)
+	if scope != nil && scope.functionScopeContext != nil {
+		if bound, declared := scope.templateBounds[asciiLowerIdent(raw)]; declared {
+			if strings.TrimSpace(bound) == "" {
+				return MixedType()
+			}
+			return ParseType(bound)
+		}
+	}
+	return ParseType(raw)
 }
 
 func inferStaticMethodCallType(call *ast.FunctionCallNode, scope *functionScope, ctx *AnalysisContext) (Type, bool) {

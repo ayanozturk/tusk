@@ -30,6 +30,24 @@
       ]
     },
     {
+      "id": "argument-function-structured-template-clean",
+      "capability": "structured generic function parameters bind within declared bounds",
+      "file": "argument-function-structured-template-clean.php",
+      "engineCodes": [],
+      "phpstanIdentifiers": []
+    },
+    {
+      "id": "argument-function-structured-template-mismatch",
+      "capability": "structured generic function parameters bind within declared bounds",
+      "file": "argument-function-structured-template-mismatch.php",
+      "engineCodes": [
+        "A.ARG.TYPE"
+      ],
+      "phpstanIdentifiers": [
+        "argument.type"
+      ]
+    },
+    {
       "id": "argument-method-mismatch",
       "capability": "method argument type mismatch",
       "file": "argument-method-mismatch.php",
