@@ -1662,21 +1662,9 @@ func checkFunctionCallArgTypes(call *ast.FunctionCallNode, scope *functionScope,
 	if !ok || len(function.Params) == 0 {
 		return
 	}
-	params := append([]ResolvedParam(nil), function.Params...)
-	templateBindings := bindCallSiteFunctionTemplates(function, call.Args, scope, ctx)
-	for index, name := range function.TemplateParams {
-		if index < len(function.TemplateBounds) && strings.TrimSpace(function.TemplateBounds[index]) != "" {
-			templateBindings[name] = function.TemplateBounds[index]
-		}
-	}
-	for index := range params {
-		params[index].Type = ApplyTemplateBindings(params[index].Type, templateBindings)
-		params[index].CallableReturnType = ApplyTemplateBindings(params[index].CallableReturnType, templateBindings)
-		params[index].CallableSignature = ApplyTemplateBindings(params[index].CallableSignature, templateBindings)
-	}
 	checkResolvedCallArgTypes("Function "+function.Name, ResolvedMethod{
 		Name:           function.Name,
-		Params:         params,
+		Params:         function.Params,
 		TemplateParams: function.TemplateParams,
 		TemplateBounds: function.TemplateBounds,
 	}, call.Args, scope, ctx, filename, issues, "")
@@ -1864,6 +1852,28 @@ func checkResolvedCallArgTypes(target string, method ResolvedMethod, args []ast.
 	if len(method.Params) == 0 {
 		return
 	}
+	if len(method.TemplateParams) > 0 {
+		bindings := bindCallSiteFunctionTemplates(ResolvedFunction{
+			Params:         method.Params,
+			TemplateParams: method.TemplateParams,
+			TemplateBounds: method.TemplateBounds,
+		}, args, scope, ctx)
+		for index, name := range method.TemplateParams {
+			if index < len(method.TemplateBounds) && strings.TrimSpace(method.TemplateBounds[index]) != "" {
+				bindings[name] = method.TemplateBounds[index]
+			}
+		}
+		method.Params = append([]ResolvedParam(nil), method.Params...)
+		for index := range method.Params {
+			param := &method.Params[index]
+			param.Type = ApplyTemplateBindings(param.Type, bindings)
+			param.CallableReturnType = ApplyTemplateBindings(param.CallableReturnType, bindings)
+			// Method callback templates keep their existing conservative signature gate.
+			if method.DeclaringClass == "" {
+				param.CallableSignature = ApplyTemplateBindings(param.CallableSignature, bindings)
+			}
+		}
+	}
 
 	nameToIndex := make(map[string]int, len(method.Params))
 	variadicIndex := -1
@@ -2005,13 +2015,24 @@ func inferArgumentTypeWithFacts(filename string, expr ast.Node, scope *functionS
 	if variable, ok := expr.(*ast.VariableNode); ok && scope != nil {
 		if contextual, found := scope.variable(variable.Name); found && !contextual.IsEmpty() {
 			actual = contextual
-			if template, ok := actual.SingleClassName(); ok {
-				if bound, declared := scope.templateBounds[asciiLowerIdent(template)]; declared {
-					if bound == "" {
-						actual = MixedType()
-					} else {
-						actual = ParseType(bound)
+			if scope.functionScopeContext != nil {
+				var bindings map[string]string
+				for _, atom := range actual.atoms {
+					if atom.kind != typeKindClass {
+						continue
 					}
+					if bound, declared := scope.templateBounds[asciiLowerIdent(atom.display)]; declared {
+						if bindings == nil {
+							bindings = make(map[string]string)
+						}
+						if bound == "" {
+							bound = "mixed"
+						}
+						bindings[atom.display] = "(" + bound + ")"
+					}
+				}
+				if len(bindings) > 0 {
+					actual = ParseType(ApplyTemplateBindings(actual.dnfString(), bindings))
 				}
 			}
 		}

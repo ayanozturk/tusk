@@ -785,6 +785,16 @@ func bindCallSiteFunctionTemplates(function ResolvedFunction, args []ast.Node, s
 		}
 		declared[name] = bound
 	}
+	for name, actual := range inferDeclaredCallSiteTemplates(function.Params, args, scope, ctx, declared) {
+		declared[name] = actual.String()
+	}
+	return declared
+}
+
+func inferDeclaredCallSiteTemplates(params []ResolvedParam, args []ast.Node, scope *functionScope, ctx *AnalysisContext, declared map[string]string) map[string]Type {
+	if len(declared) == 0 {
+		return nil
+	}
 	inferred := make(map[string]Type)
 	next := 0
 	for _, arg := range args {
@@ -793,46 +803,52 @@ func bindCallSiteFunctionTemplates(function ResolvedFunction, args []ast.Node, s
 		}
 		index := -1
 		if named, ok := arg.(*ast.NamedArgumentNode); ok {
-			for i, param := range function.Params {
+			for i, param := range params {
 				if param.Name == named.Name {
 					index = i
 					break
 				}
 			}
-		} else if next < len(function.Params) {
+		} else if next < len(params) {
 			index = next
-			if !function.Params[index].IsVariadic {
+			if !params[index].IsVariadic {
 				next++
 			}
 		}
 		if index < 0 {
 			continue
 		}
-		param := function.Params[index]
+		param := params[index]
 		name := strings.TrimSpace(param.Type)
 		var actual Type
 		if _, ok := declared[name]; ok {
 			actual = inferArgumentTypeWithFacts("", argumentValue(arg), scope, ctx)
 		} else {
-			name = function.Params[index].CallableReturnType
+			if instance, ok := parseExactGenericTypeFromString(param.Type); ok && strings.EqualFold(instance.ClassName, "class-string") && len(instance.TypeArguments) == 1 {
+				if template, isDeclared := declaredTemplateKey(instance.TypeArguments[0], declared); isDeclared {
+					if className, known := classNameFromClassStringArgument(argumentValue(arg), scope); known {
+						mergeCallSiteTemplate(inferred, template, ParseType(className))
+					}
+					continue
+				}
+			}
+			name = param.CallableReturnType
 			if _, ok := declared[name]; !ok {
 				inferStructuredCallSiteTemplates(param.Type, argumentValue(arg), scope, ctx, declared, inferred)
 				continue
 			}
 			actual = inferCallableInvocationReturn(argumentValue(arg), scope, ctx)
 		}
-		if actual.IsEmpty() {
-			continue
-		}
-		if previous, ok := inferred[name]; ok {
-			actual = unionInferredTypes(previous, actual)
-		}
-		inferred[name] = actual
+		mergeCallSiteTemplate(inferred, name, actual)
 	}
 	for name, actual := range inferred {
-		declared[name] = actual.String()
+		bound := strings.TrimSpace(declared[name])
+		if bound != "" && !strings.EqualFold(bound, "mixed") &&
+			!phpDocTypeIsSubtype(actual.String(), bound, fileTypeContextForScope(scope), ctx) {
+			inferred[name] = callSiteTemplateArgumentType(bound, scope)
+		}
 	}
-	return declared
+	return inferred
 }
 
 const callSiteTemplateInferenceDepthLimit = 32
@@ -2662,6 +2678,18 @@ func bindCallSiteMethodTemplates(method ResolvedMethod, args []ast.Node, scope *
 		return nil
 	}
 	bindings := make(map[string]string)
+	declared := make(map[string]string, len(method.TemplateParams))
+	for index, name := range method.TemplateParams {
+		bound := "mixed"
+		if index < len(method.TemplateBounds) && strings.TrimSpace(method.TemplateBounds[index]) != "" {
+			bound = method.TemplateBounds[index]
+		}
+		declared[name] = bound
+	}
+	for name, actual := range inferDeclaredCallSiteTemplates(method.Params, args, scope, ctx, declared) {
+		bindings[name] = actual.String()
+	}
+	declaredNames := templateNames(method.TemplateParams)
 	next := 0
 	for _, argNode := range args {
 		if _, ok := argNode.(*ast.UnpackedArgumentNode); ok {
@@ -2677,42 +2705,38 @@ func bindCallSiteMethodTemplates(method ResolvedMethod, args []ast.Node, scope *
 			}
 		} else if next < len(method.Params) {
 			paramIndex = next
-			next++
+			if !method.Params[paramIndex].IsVariadic {
+				next++
+			}
 		}
 		if paramIndex < 0 || paramIndex >= len(method.Params) {
 			continue
 		}
-		name := templateNameFromParamType(method.Params[paramIndex].Type, method.ReturnType, ctx)
 		argExpr := argumentValue(argNode)
-		directTemplate := isKnownTemplateName(method.Params[paramIndex].Type, templateNames(method.TemplateParams))
-		if directTemplate {
+		name := templateNameFromParamType(method.Params[paramIndex].Type, method.ReturnType, ctx)
+		if name == "" && isKnownTemplateName(method.Params[paramIndex].Type, declaredNames) {
 			name = method.Params[paramIndex].Type
 		}
-		callableReturn := EmptyType()
-		if !directTemplate && phpDocUsesTemplate(method.Params[paramIndex].CallableReturnType, templateNames(method.TemplateParams)) {
-			callableReturn = inferCallableInvocationReturn(argExpr, scope, ctx)
-			if template := method.Params[paramIndex].CallableReturnType; isKnownTemplateName(template, templateNames(method.TemplateParams)) {
-				name = template
+		classStringParam := isKnownTemplateName(method.Params[paramIndex].Type, declaredNames) &&
+			strings.Contains(declared[name], "class-string")
+		for _, part := range splitTopLevelTypes(method.Params[paramIndex].Type, '|') {
+			classStringParam = classStringParam || isClassStringTemplateParam(part, method.ReturnType, ctx)
+		}
+		if name != "" && (classStringParam || len(declared) == 0) {
+			if className, ok := classNameFromClassStringArgument(argExpr, scope); ok {
+				bindings[name] = className
+				continue
 			}
 		}
-		if name == "" && !callableReturn.IsEmpty() {
-			name = openTemplateParamName(method.ReturnType, ctx)
+		if phpDocUsesTemplate(method.Params[paramIndex].Type, declaredNames) ||
+			phpDocUsesTemplate(method.Params[paramIndex].CallableReturnType, declaredNames) {
+			continue
 		}
 		if name == "" {
 			continue
 		}
-		if className, ok := classNameFromClassStringArgument(argExpr, scope); ok {
-			bindings[name] = className
-			continue
-		}
 		if isClassStringTemplateParam(method.Params[paramIndex].Type, method.ReturnType, ctx) {
 			continue
-		}
-		if !callableReturn.IsEmpty() {
-			if label := strings.TrimSpace(callableReturn.dnfString()); label != "" {
-				bindings[name] = label
-				continue
-			}
 		}
 		actual := inferTypeWithFacts(filename, argExpr, scope, ctx)
 		if label := strings.TrimSpace(actual.String()); label != "" {
@@ -2725,6 +2749,9 @@ func bindCallSiteMethodTemplates(method ResolvedMethod, args []ast.Node, scope *
 			continue
 		}
 		if _, ok := bindings[name]; ok {
+			continue
+		}
+		if _, known := declaredTemplateKey(name, declared); known && !isKnownTemplateName(param.Type, declaredNames) {
 			continue
 		}
 		if param.HasDefault {

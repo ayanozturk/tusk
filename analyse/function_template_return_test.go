@@ -157,6 +157,15 @@ function wrong(array $values): string { return boundedValue($values); }
 	if len(mismatches) != 1 || mismatches[0].Line != 10 {
 		t.Fatalf("want one bounded structured-template argument mismatch at line 10, got %#v", mismatches)
 	}
+	var returns []AnalysisIssue
+	for _, issue := range issues {
+		if issue.Code == "A.RETURN.TYPE" {
+			returns = append(returns, issue)
+		}
+	}
+	if len(returns) != 1 || returns[0].Line != 10 {
+		t.Fatalf("invalid template arguments must retain the return bound, got %#v", returns)
+	}
 }
 
 func TestFunctionTemplateReturnBindsCallableVariable(t *testing.T) {

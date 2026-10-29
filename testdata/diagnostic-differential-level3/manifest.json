@@ -3,7 +3,7 @@
   "reference": {
     "tool": "PHPStan",
     "level": 3,
-    "version": "2.2.5",
+    "version": "2.2.16",
     "configuration": "../phpstan-differential.neon"
   },
   "cases": [
@@ -390,6 +390,20 @@
       "phpstanIdentifiers": [
         "return.type"
       ]
+    },
+    {
+      "id": "method-template-structured-return-clean",
+      "capability": "structured method-template returns through inherited, interface, named and static calls",
+      "file": "method-template-structured-return-clean.php",
+      "engineCodes": [],
+      "phpstanIdentifiers": []
+    },
+    {
+      "id": "method-template-structured-return-mismatch",
+      "capability": "structured method-template returns through inherited, interface, named and static calls",
+      "file": "method-template-structured-return-mismatch.php",
+      "engineCodes": ["A.RETURN.TYPE", "A.RETURN.TYPE", "A.RETURN.TYPE"],
+      "phpstanIdentifiers": ["return.type", "return.type", "return.type"]
     },
     {
       "id": "callable-return-assertion-clean",

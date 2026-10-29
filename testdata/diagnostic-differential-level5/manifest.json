@@ -8,6 +8,20 @@
   },
   "cases": [
     {
+      "id": "argument-method-structured-template-clean",
+      "capability": "structured method and constructor template arguments retain declared bounds",
+      "file": "argument-method-structured-template-clean.php",
+      "engineCodes": [],
+      "phpstanIdentifiers": []
+    },
+    {
+      "id": "argument-method-structured-template-mismatch",
+      "capability": "structured method and constructor template arguments retain declared bounds",
+      "file": "argument-method-structured-template-mismatch.php",
+      "engineCodes": ["A.ARG.TYPE", "A.ARG.TYPE"],
+      "phpstanIdentifiers": ["argument.type", "argument.type"]
+    },
+    {
       "id": "argument-function-mismatch",
       "capability": "named-function argument type mismatch",
       "file": "argument-function-mismatch.php",
@@ -41,10 +55,12 @@
       "capability": "structured generic function parameters bind within declared bounds",
       "file": "argument-function-structured-template-mismatch.php",
       "engineCodes": [
-        "A.ARG.TYPE"
+        "A.ARG.TYPE",
+        "A.RETURN.TYPE"
       ],
       "phpstanIdentifiers": [
-        "argument.type"
+        "argument.type",
+        "return.type"
       ]
     },
     {

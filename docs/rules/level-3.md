@@ -8,7 +8,7 @@
 
 - **Introduced at this level:** 5 registered levelled rules: `A.PROP.TYPE`, `A.RETURN.NEVER`, `A.RETURN.TYPE`, `A.RETURN.VOID`, and `Level3.ThrowType`.
 - **Cumulative registered levelled rules:** 26. The assignment, binary-operation, void-purity, method, and PHPDoc rules from level 2 are cumulative and are not introduced here.
-- **Checked-in differential pack:** 54 cases in `testdata/diagnostic-differential-level3`.
+- **Checked-in differential pack:** 56 cases in `testdata/diagnostic-differential-level3`.
 
 ## Registered rules, one by one
 
@@ -74,15 +74,19 @@ function countItems(): int { return "three"; }
 function countItems(): int { return 3; }
 ```
 
-Named generic function returns use call-site bindings from direct template
+Named generic function and method returns use call-site bindings from direct template
 arguments and declared or supported inferred callable returns, including imported function aliases.
 The level-3 clean/mismatch fixtures cover `preserve($value)` and a `Value`
 template nested in a known `list<Value>` or array parameter structure. Repeated
 direct arguments join their inferred types; unresolved or structurally unknown
 bindings use a bound or `mixed`. Supported unannotated arrows and simple closures infer returns in isolated
-parameter/capture scopes. Method direct/callback template binding also preserves
-arbitrary declared template names and inherited callback metadata. Structured
-method-template inference, unsupported generic structures, and complex callback
+parameter/capture scopes. Method template binding preserves arbitrary declared
+template names and inherited callback metadata, and shares structured generic
+inference with functions. Clean/mismatch fixtures cover inherited, interface,
+named, and static method returns from known iterable generic arguments; unit
+tests also cover nested generic arguments and variadic joins. A binding outside
+its declared bound retains the bound for return inference, while the call still
+reports the invalid argument. Unsupported generic structures and complex callback
 control flow remain partial.
 
 Anonymous `@var` annotations immediately before a return, or named assertions
