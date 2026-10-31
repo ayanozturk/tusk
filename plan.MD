@@ -50,6 +50,13 @@ Next, continue PHPDoc/type semantics with explicit regression/reference evidence
 for unsupported union structures, dependent bounds, and generic callback
 contracts before moving to flow or interprocedural work. Arguments without
 recoverable generic context and static-method argument checking remain partial.
+The latest level-8 PSL comparison (2026-10-31T20:34:43Z) analyzed all 1,775
+selected files without parse/read failures and reports 150 engine-only
+`A.ARG.TYPE` plus 7 `A.RETURN.TYPE` findings. Against the freshly pulled
+`main` baseline, this batch removes 144 argument and 64 return findings with
+regression fixtures and clean controls and adds none in those families. The
+remaining source locations and release-wide diagnostic gate stay open in
+[reviewed corpus quality](docs/reviewed-corpus-quality.md).
 
 ## Deferred release work
 

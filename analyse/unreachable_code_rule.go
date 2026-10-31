@@ -287,6 +287,76 @@ func isTerminatingStatement(node ast.Node) bool {
 			}
 		}
 		return statementsTerminate(n.Else.Body)
+	case *ast.WhileNode:
+		return isTrueLiteralExpression(n.Condition) && !statementsContainBreakForCurrentLoop(n.Body)
+	case *ast.DoWhileNode:
+		return isTrueLiteralExpression(n.Condition) && !statementsContainBreakForCurrentLoop(n.Body)
+	case *ast.ForNode:
+		return len(n.Conditions) == 0 && !statementsContainBreakForCurrentLoop(n.Body)
+	}
+	return false
+}
+
+func statementsContainBreakForCurrentLoop(stmts []ast.Node) bool {
+	for _, stmt := range stmts {
+		switch node := stmt.(type) {
+		case *ast.BreakNode:
+			return true
+		case *ast.IfNode:
+			if statementsContainBreakForCurrentLoop(node.Body) || node.Else != nil && statementsContainBreakForCurrentLoop(node.Else.Body) {
+				return true
+			}
+			for _, branch := range node.ElseIfs {
+				if statementsContainBreakForCurrentLoop(branch.Body) {
+					return true
+				}
+			}
+		case *ast.BlockNode:
+			if statementsContainBreakForCurrentLoop(node.Statements) {
+				return true
+			}
+		case *ast.TryNode:
+			if statementsContainBreakForCurrentLoop(node.Body) || statementsContainBreakForCurrentLoop(node.Finally) {
+				return true
+			}
+			for _, catch := range node.Catches {
+				if catch != nil && statementsContainBreakForCurrentLoop(catch.Body) {
+					return true
+				}
+			}
+		case *ast.ExpressionStmt, *ast.AssignmentNode, *ast.ReturnNode, *ast.ThrowNode, *ast.ContinueNode:
+			continue
+		case *ast.WhileNode, *ast.DoWhileNode, *ast.ForNode, *ast.ForeachNode, *ast.SwitchNode:
+			// A break in a nested loop or switch normally targets that inner
+			// construct. Treat it conservatively as a possible outer break.
+			if nestedStatementsContainBreak(stmt) {
+				return true
+			}
+		default:
+			// A statement form not covered above could contain a break (for
+			// example, inside try/finally); do not prove the loop non-exiting.
+			return true
+		}
+	}
+	return false
+}
+
+func nestedStatementsContainBreak(node ast.Node) bool {
+	switch n := node.(type) {
+	case *ast.WhileNode:
+		return statementsContainBreakForCurrentLoop(n.Body)
+	case *ast.DoWhileNode:
+		return statementsContainBreakForCurrentLoop(n.Body)
+	case *ast.ForNode:
+		return statementsContainBreakForCurrentLoop(n.Body)
+	case *ast.ForeachNode:
+		return statementsContainBreakForCurrentLoop(n.Body)
+	case *ast.SwitchNode:
+		for _, branch := range n.Cases {
+			if statementsContainBreakForCurrentLoop(branch.Body) {
+				return true
+			}
+		}
 	}
 	return false
 }
@@ -297,6 +367,92 @@ func statementsTerminate(stmts []ast.Node) bool {
 	}
 	for _, stmt := range stmts {
 		if isTerminatingStatement(stmt) {
+			return true
+		}
+	}
+	return false
+}
+
+func statementsTerminateWithContext(stmts []ast.Node, scope *functionScope, ctx *AnalysisContext) bool {
+	if len(stmts) == 0 {
+		return false
+	}
+	for _, stmt := range stmts {
+		if isTerminatingStatementWithContext(stmt, scope, ctx) {
+			return true
+		}
+	}
+	return false
+}
+
+func isTerminatingStatementWithContext(node ast.Node, scope *functionScope, ctx *AnalysisContext) bool {
+	switch n := node.(type) {
+	case *ast.ExpressionStmt:
+		if isNeverReturningCall(n.Expr) {
+			return true
+		}
+		return expressionCallsNeverReturningSymbol(n.Expr, scope, ctx)
+	case *ast.IfNode:
+		if n.Else == nil || !statementsTerminateWithContext(n.Body, scope, ctx) {
+			return false
+		}
+		for _, elseif := range n.ElseIfs {
+			if !statementsTerminateWithContext(elseif.Body, scope, ctx) {
+				return false
+			}
+		}
+		return statementsTerminateWithContext(n.Else.Body, scope, ctx)
+	default:
+		return isTerminatingStatement(node)
+	}
+}
+
+func expressionCallsNeverReturningSymbol(node ast.Node, scope *functionScope, ctx *AnalysisContext) bool {
+	if node == nil || ctx == nil || ctx.Resolver == nil {
+		return false
+	}
+	switch call := node.(type) {
+	case *ast.FunctionCallNode:
+		name := functionCallName(call)
+		if className, methodName, ok := strings.Cut(name, "::"); ok {
+			if scope != nil {
+				className = scope.typeCtx.resolveClassLike(className)
+			}
+			if method, found := resolveMethodView(ctx.Resolver, className, methodName); found {
+				return ParseType(method.ReturnType).String() == "never"
+			}
+			return false
+		}
+		var typeCtx FileTypeContext
+		if scope != nil {
+			typeCtx = scope.typeCtx
+		}
+		resolvedName := resolveFunctionNameForCall(name, typeCtx, ctx)
+		function, found := resolveFunctionView(ctx.Resolver, resolvedName)
+		return found && ParseType(function.ReturnType).String() == "never"
+	case *ast.MethodCallNode:
+		className := ""
+		if receiver, ok := call.Object.(*ast.VariableNode); ok && receiver.Name == "this" && scope != nil {
+			className = scope.className
+		} else if scope != nil {
+			className = methodCallClassName(call.Object, scope.typeCtx)
+		}
+		method, found := resolveMethodView(ctx.Resolver, className, call.Method)
+		return found && ParseType(method.ReturnType).String() == "never"
+	default:
+		return false
+	}
+}
+
+func statementsExitCurrentBlockWithContext(stmts []ast.Node, scope *functionScope, ctx *AnalysisContext) bool {
+	if statementsTerminateWithContext(stmts, scope, ctx) {
+		return true
+	}
+	if len(stmts) == 0 {
+		return false
+	}
+	for _, stmt := range stmts {
+		if exitsCurrentBlock(stmt) {
 			return true
 		}
 	}

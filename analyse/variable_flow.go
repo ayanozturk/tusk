@@ -633,6 +633,9 @@ func (a *variableFlowAnalyzer) statement(node ast.Node, state *variableFlowState
 		return variableFlowResult{normal: state}
 	case *ast.ExpressionStmt:
 		a.expression(n.Expr, state, false)
+		if a.isNeverReturningCall(n.Expr) {
+			return variableFlowResult{terminates: []*variableFlowState{cloneVariableFlowState(state)}}
+		}
 		return variableFlowResult{normal: state}
 	case *ast.ReturnNode:
 		a.expression(n.Expr, state, false)
@@ -671,6 +674,44 @@ func (a *variableFlowAnalyzer) statement(node ast.Node, state *variableFlowState
 	default:
 		a.expression(node, state, false)
 		return variableFlowResult{normal: state}
+	}
+}
+
+func (a *variableFlowAnalyzer) isNeverReturningCall(node ast.Node) bool {
+	if a == nil || a.resolver == nil {
+		return false
+	}
+	switch call := node.(type) {
+	case *ast.FunctionCallNode:
+		name := functionCallName(call)
+		if name == "" {
+			return false
+		}
+		if className, methodName, ok := strings.Cut(name, "::"); ok {
+			className = a.resolveCallClassName(className)
+			if className == "" {
+				return false
+			}
+			method, found := resolveMethodView(a.resolver, className, methodName)
+			return found && ParseType(method.ReturnType).String() == "never"
+		}
+		resolvedName := resolveFunctionNameForCall(name, a.typeContext, &AnalysisContext{Resolver: a.resolver})
+		function, ok := resolveFunctionView(a.resolver, resolvedName)
+		return ok && ParseType(function.ReturnType).String() == "never"
+	case *ast.MethodCallNode:
+		className := ""
+		if receiver, ok := call.Object.(*ast.VariableNode); ok && receiver.Name == "this" {
+			className = a.currentClassName
+		} else {
+			className = methodCallClassName(call.Object, a.typeContext)
+		}
+		if className == "" {
+			return false
+		}
+		method, ok := resolveMethodView(a.resolver, className, call.Method)
+		return ok && ParseType(method.ReturnType).String() == "never"
+	default:
+		return false
 	}
 }
 

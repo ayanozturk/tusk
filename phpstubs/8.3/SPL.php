@@ -967,7 +967,7 @@ class DateInterval
 
     public function __construct(string $duration) {}
 
-    public static function createFromDateString(string $datetime): static|false { return new static('P0D'); }
+    public static function createFromDateString(string $datetime): static { return new static('P0D'); }
 
     public function format(string $format): string { return ''; }
 }

@@ -14,6 +14,30 @@ func ApplyTemplateBindings(raw string, bindings map[string]string) string {
 	return substituteTemplateTokens(raw, bindings, false)
 }
 
+func applyScopeTemplateBounds(typ Type, scope *functionScope) Type {
+	if typ.IsEmpty() || scope == nil || len(scope.templateBounds) == 0 {
+		return typ
+	}
+	bindings := make(map[string]string)
+	for _, atom := range typ.atoms {
+		name := asciiLowerIdent(atom.display)
+		bound, ok := scope.templateBounds[name]
+		if !ok && atom.kind == typeKindClass {
+			if separator := strings.LastIndex(atom.display, `\`); separator >= 0 && separator+1 < len(atom.display) {
+				name = asciiLowerIdent(atom.display[separator+1:])
+				bound, ok = scope.templateBounds[name]
+			}
+		}
+		if ok && bound != "" {
+			bindings[atom.display] = bound
+		}
+	}
+	if len(bindings) == 0 {
+		return typ
+	}
+	return ParseType(substituteTemplateTokens(typ.dnfString(), bindings, false))
+}
+
 func substituteTemplateTokens(raw string, bindings map[string]string, skipGenericArgs bool) string {
 	if raw == "" || len(bindings) == 0 {
 		return raw
@@ -142,15 +166,24 @@ func genericReceiver(typ Type) (className string, typeArgs []string, ok bool) {
 }
 
 func richerGenericType(native, documented string, ft FileTypeContext) string {
+	return richerGenericTypeWithTemplates(native, documented, ft, nil)
+}
+
+func richerGenericTypeWithTemplates(native, documented string, ft FileTypeContext, templates map[string]struct{}) string {
 	native = strings.TrimSpace(native)
 	documented = strings.TrimSpace(documented)
 	nativeNorm := normalizeTypeWithContext(native, ft)
-	docNorm := normalizeTypeWithContext(documented, ft)
+	docNorm := normalizeTemplateAwareType(documented, ft, templates)
 	if nativeNorm == "" {
 		return docNorm
 	}
 	if docNorm == "" {
 		return nativeNorm
+	}
+	documentedType := ParseType(docNorm)
+	nativeType := ParseType(nativeNorm)
+	if documentedType.hasOnlyBuiltinAtoms() && nativeType.Accepts(documentedType) {
+		return docNorm
 	}
 	if nativeNorm == "string" && docNorm == "non-empty-string" {
 		return docNorm
@@ -174,6 +207,35 @@ func richerGenericType(native, documented string, ft FileTypeContext) string {
 		return docNorm
 	}
 	return nativeNorm
+}
+
+func phpDocGenericRefinesNativeType(documented, native Type) bool {
+	if documented.IsEmpty() || native.IsEmpty() || len(native.alternatives) != 1 {
+		return false
+	}
+	documentedName, ok := documented.SingleClassName()
+	if !ok {
+		return false
+	}
+	documentedInstance, ok := parseExactGenericTypeFromString(documentedName)
+	if !ok || len(documentedInstance.TypeArguments) == 0 {
+		return false
+	}
+	nativeName, ok := native.SingleClassName()
+	if !ok {
+		return false
+	}
+	return strings.EqualFold(eraseGenericArgs(nativeName), eraseGenericArgs(documentedInstance.ClassName))
+}
+
+func promotedPHPDocRefinesNativeType(documented, native Type) bool {
+	if documented.IsEmpty() || native.IsEmpty() {
+		return false
+	}
+	if documented.hasOnlyBuiltinAtoms() && native.Accepts(documented) {
+		return true
+	}
+	return phpDocGenericRefinesNativeType(documented, native)
 }
 
 func expandPHPDocTypeAliases(raw string, aliases map[string]string) string {
@@ -445,7 +507,11 @@ func normalizeTemplateAwareTypeExpression(raw string, ctx FileTypeContext, templ
 		case "class-string", "interface-string", "trait-string":
 			// Keep PHPDoc class-string<T> instead of collapsing to string<T>.
 		default:
-			name = normalizeTemplateAwareTypeExpression(name, ctx, templates)
+			if strings.HasPrefix(name, `\`) {
+				name = ctx.resolveClassLike(name)
+			} else {
+				name = normalizeTemplateAwareTypeExpression(name, ctx, templates)
+			}
 		}
 		args := make([]string, len(instance.TypeArguments))
 		for idx, argument := range instance.TypeArguments {

@@ -167,7 +167,7 @@ func inferCallableExpressionSignature(expr ast.Node, outer *functionScope, ctx *
 		return callableSignature{}, false
 	}
 	local := callableExpressionScope(expr, outer, ctx)
-	sig := callableSignature{params: paramsFromNodesWithPHPDoc(nodes, nil, local.typeCtx, nil, nil)}
+	sig := callableSignature{params: paramsFromNodesWithPHPDoc(nodes, nil, local.typeCtx, nil, nil, false)}
 	for i, p := range sig.params {
 		if p.Type == "" {
 			sig.params[i].Type = "mixed"

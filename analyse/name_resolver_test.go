@@ -40,6 +40,15 @@ func TestNormalizeTypeWithContextResolvesGenericClassAliases(t *testing.T) {
 	}
 }
 
+func TestNormalizeTemplateAwareTypePreservesAbsoluteGenericClass(t *testing.T) {
+	ctx := FileTypeContext{Namespace: "App"}
+	got := normalizeTemplateAwareType(`\SplObjectStorage<int, string>`, ctx, nil)
+	want := `SplObjectStorage<int, string>`
+	if got != want {
+		t.Fatalf("normalized absolute generic = %q, want %q", got, want)
+	}
+}
+
 func TestNormalizeTemplateAwareTypePreservesDNFGrouping(t *testing.T) {
 	ctx := FileTypeContext{Namespace: "App", Aliases: map[string]string{}}
 	got := normalizeTemplateAwareType("(T&Marker)|Alternative", ctx, map[string]struct{}{"T": {}})

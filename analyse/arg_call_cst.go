@@ -253,7 +253,7 @@ func (w *argCallCSTWalker) finishIfScope(scope *functionScope, cond ast.Node, th
 				scope.setVariable(guard.variable, refineTypeByInstanceof(current, typ))
 			}
 		}
-		for name, typ := range variablesTypedWhenFalse(cond, scope) {
+		for name, typ := range variablesTypedWhenFalse(cond, scope, w.ctx) {
 			if !typ.IsEmpty() {
 				scope.setVariable(name, typ)
 			}
@@ -275,7 +275,14 @@ func (w *argCallCSTWalker) finishIfScope(scope *functionScope, cond ast.Node, th
 		joinFallthroughVariableTypes(scope, fallthroughs)
 	}
 	if !hasElse && len(elseifNodes) == 0 && !w.cstBodyTerminates(thenBody) {
-		if !w.cstBodyExits(thenBody) && len(variablesWithoutFinalInstanceofWhenFalse(cond, scope, w.ctx)) > 0 {
+		falsePathAssignment := false
+		for name := range variablesTypedWhenFalse(cond, scope, w.ctx) {
+			if w.cstBodyAssignsVariable(thenBody, name) {
+				falsePathAssignment = true
+				break
+			}
+		}
+		if !w.cstBodyExits(thenBody) && (len(variablesWithoutFinalInstanceofWhenFalse(cond, scope, w.ctx)) > 0 || hasNegatedInstanceofOnConjunctiveTruePath(cond) || falsePathAssignment) {
 			falseScope := scopeForConditionFalse(scope, cond, w.ctx)
 			joinFallthroughVariableTypes(scope, []*functionScope{thenScope, falseScope})
 		}
@@ -287,7 +294,7 @@ func (w *argCallCSTWalker) applyIfSpecialScope(scope *functionScope, cond ast.No
 	name, ok := falsyInitGuardVariable(cond)
 	if ok && w.cstBodyAssignsVariable(body, name) {
 		thenType, thenOK := thenScope.variable(name)
-		elseType, elseOK := variablesTypedWhenFalse(cond, scope)[name]
+		elseType, elseOK := variablesTypedWhenFalse(cond, scope, w.ctx)[name]
 		if !elseOK {
 			elseType, elseOK = nonNullVariableType(scope, name)
 		}

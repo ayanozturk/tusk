@@ -2,6 +2,7 @@ package analyse
 
 import (
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/ayanozturk/tusk/ast"
@@ -54,7 +55,7 @@ func (idx *ProjectIndex) indexNodes(filename string, nodes []ast.Node, ft FileTy
 			idx.addClass(filename, ResolvedClass{Name: name, Implements: resolvedList(ft, n.Implements), Kind: "enum", Final: true}, n)
 			idx.indexClassMembers(filename, name, nil, n.Methods, nil, ft, nil, nil)
 			for _, enumCase := range n.Cases {
-				idx.addClassConstant(name, ResolvedConstant{Name: enumCase.Name, DeclaringClass: name, Declaration: sourceLocation(filename, enumCase), Visibility: "public"})
+				idx.addClassConstant(name, ResolvedConstant{Name: enumCase.Name, DeclaringClass: name, Declaration: sourceLocation(filename, enumCase), ValueType: enumCaseLiteralType(enumCase.Value), Visibility: "public"})
 			}
 			idx.addEnumNativeMembers(filename, name, n)
 		case *ast.FunctionNode:
@@ -90,7 +91,7 @@ func (idx *ProjectIndex) indexNodes(filename string, nodes []ast.Node, ft FileTy
 				ReturnType:            normalizedReturn,
 				ConditionalReturnType: conditionalReturn,
 				CallableReturnType:    callableReturn.dnfString(),
-				Params:                paramsFromNodesWithPHPDoc(n.Params, n.PHPDoc, ft, templates, phpDocTypeAliasBindings(n.PHPDoc)),
+				Params:                paramsFromNodesWithPHPDoc(n.Params, n.PHPDoc, ft, templates, phpDocTypeAliasBindings(n.PHPDoc), false),
 				TemplateParams:        resolvedMethodTemplateParams(n.PHPDoc),
 				TemplateBounds:        resolvedMethodTemplateBounds(n.PHPDoc, ft, templates),
 			}
@@ -102,6 +103,21 @@ func (idx *ProjectIndex) indexNodes(filename string, nodes []ast.Node, ft FileTy
 		case *ast.ConstantNode:
 			idx.addGlobalConstant(filename, ft.resolveClassLike(n.Name))
 		}
+	}
+}
+
+func enumCaseLiteralType(value ast.Node) string {
+	switch node := value.(type) {
+	case *ast.IntegerLiteral:
+		return strconv.FormatInt(node.Value, 10)
+	case *ast.IntegerNode:
+		return strconv.FormatInt(node.Value, 10)
+	case *ast.StringLiteral:
+		return quotePHPDocStringLiteral(node.Value)
+	case *ast.StringNode:
+		return quotePHPDocStringLiteral(node.Value)
+	default:
+		return ""
 	}
 }
 
@@ -219,7 +235,7 @@ func (idx *ProjectIndex) indexInterfaceMembers(filename, className string, membe
 			if nativeReturn != "" {
 				nativeReturnType = normalizeTemplateAwareType(nativeReturn, ft, templates)
 			}
-			idx.addMethod(className, ResolvedMethod{Name: m.Name, DeclaringClass: className, Declaration: sourceLocation(filename, m), ReturnType: normalizedReturn, ConditionalReturnType: conditionalReturn, NativeReturnType: nativeReturnType, CallableReturnType: callableReturn.dnfString(), Params: paramsFromNodesWithPHPDoc(m.Params, m.PHPDoc, ft, templates, aliases), TemplateParams: resolvedMethodTemplateParams(m.PHPDoc), TemplateBounds: resolvedMethodTemplateBounds(m.PHPDoc, ft, templates), Visibility: "public", Abstract: true})
+			idx.addMethod(className, ResolvedMethod{Name: m.Name, DeclaringClass: className, Declaration: sourceLocation(filename, m), ReturnType: normalizedReturn, ConditionalReturnType: conditionalReturn, NativeReturnType: nativeReturnType, CallableReturnType: callableReturn.dnfString(), Params: paramsFromNodesWithPHPDoc(m.Params, m.PHPDoc, ft, templates, aliases, true), TemplateParams: resolvedMethodTemplateParams(m.PHPDoc), TemplateBounds: resolvedMethodTemplateBounds(m.PHPDoc, ft, templates), Visibility: "public", Abstract: true})
 		case *ast.PropertyNode:
 			rawType := nativeTypeDNF(m.TypeHint, ft)
 			docType := ""
@@ -366,11 +382,25 @@ func (idx *ProjectIndex) addEnumNativeMembers(filename, enumName string, enum *a
 	if backing == "" {
 		return
 	}
+	valueTypes := make([]Type, 0, len(enum.Cases))
+	for _, enumCase := range enum.Cases {
+		valueType := enumCaseLiteralType(enumCase.Value)
+		if valueType == "" {
+			valueTypes = nil
+			break
+		}
+		valueTypes = append(valueTypes, ParseType(valueType))
+	}
+	caseValueType := ""
+	if len(valueTypes) > 0 {
+		caseValueType = unionInferredTypes(valueTypes...).String()
+	}
 	idx.addProperty(enumName, ResolvedProperty{
 		Name:           "value",
 		DeclaringClass: enumName,
 		Declaration:    declaration,
 		Type:           backing,
+		ValueType:      caseValueType,
 		Visibility:     "public",
 		Readonly:       true,
 	})
@@ -523,7 +553,7 @@ func methodFromFunction(filename, className string, fn *ast.FunctionNode, ft Fil
 		ConditionalReturnType: conditionalReturn,
 		NativeReturnType:      nativeReturnType,
 		CallableReturnType:    callableReturn.dnfString(),
-		Params:                paramsFromNodesWithPHPDoc(fn.Params, fn.PHPDoc, ft, templates, aliases),
+		Params:                paramsFromNodesWithPHPDoc(fn.Params, fn.PHPDoc, ft, templates, aliases, true),
 		TemplateParams:        resolvedMethodTemplateParams(fn.PHPDoc),
 		TemplateBounds:        resolvedMethodTemplateBounds(fn.PHPDoc, ft, templates),
 		Visibility:            functionVisibility(fn),
@@ -641,17 +671,18 @@ func functionVisibility(fn *ast.FunctionNode) string {
 }
 
 func paramsFromNodes(nodes []ast.Node, ft FileTypeContext) []ResolvedParam {
-	return paramsFromNodesWithPHPDoc(nodes, nil, ft, nil, nil)
+	return paramsFromNodesWithPHPDoc(nodes, nil, ft, nil, nil, false)
 }
 
-func paramsFromNodesWithPHPDoc(nodes []ast.Node, doc *ast.PHPDocNode, ft FileTypeContext, templates map[string]struct{}, aliases map[string]string) []ResolvedParam {
+func paramsFromNodesWithPHPDoc(nodes []ast.Node, doc *ast.PHPDocNode, ft FileTypeContext, templates map[string]struct{}, aliases map[string]string, bindNestedMethodTemplates bool) []ResolvedParam {
 	var callableTemplates map[string]struct{}
 	if doc != nil {
 		for _, template := range doc.Templates {
 			if callableTemplates == nil {
 				callableTemplates = make(map[string]struct{}, len(doc.Templates))
 			}
-			callableTemplates[asciiLowerIdent(template.Name)] = struct{}{}
+			name := asciiLowerIdent(template.Name)
+			callableTemplates[name] = struct{}{}
 		}
 	}
 	params := make([]ResolvedParam, 0, len(nodes))
@@ -673,16 +704,27 @@ func paramsFromNodesWithPHPDoc(nodes []ast.Node, doc *ast.PHPDocNode, ft FileTyp
 		typ = expandPHPDocTypeAliases(typ, aliases)
 		callableReturn := normalizeTemplateAwareType(rawCallableReturnType(typ), ft, templates)
 		callableContract := normalizedCallableContract(typ, ft, templates)
+		allowNestedTemplateBinding := bindNestedMethodTemplates && hasNestedIterableValueTemplate(typ, native, callableTemplates)
+		typeTemplates := templates
+		if allowNestedTemplateBinding {
+			typeTemplates = copyTemplateNameSet(templates)
+			for template := range callableTemplates {
+				if typeTemplates == nil {
+					typeTemplates = make(map[string]struct{}, len(callableTemplates))
+				}
+				typeTemplates[template] = struct{}{}
+			}
+		}
 		// Preserve composite types when their templates are available to call-site
 		// inference; otherwise keep declaration-local templates conservative.
-		if phpDocUsesTemplate(typ, callableTemplates) && !isKnownTemplateName(typ, templates) && !isKnownTemplateName(typ, callableTemplates) && !isClassStringOfKnownTemplate(typ, templates, callableTemplates) && !phpDocUsesTemplate(typ, templates) {
+		if phpDocUsesTemplate(typ, callableTemplates) && !isKnownTemplateName(typ, templates) && !isKnownTemplateName(typ, callableTemplates) && !isClassStringOfKnownTemplate(typ, templates, callableTemplates) && !phpDocUsesTemplate(typ, templates) && !allowNestedTemplateBinding {
 			typ = "mixed"
 		}
 		params = append(params, ResolvedParam{
 			CallableReturnType: callableReturn,
 			CallableSignature:  callableContract,
 			Name:               param.Name,
-			Type:               documentedParamTypePreservingNativeNull(native, normalizeTemplateAwareType(typ, ft, templates)),
+			Type:               documentedParamTypePreservingNativeNull(native, normalizeTemplateAwareType(typ, ft, typeTemplates)),
 			HasDefault:         param.DefaultValue != nil,
 			IsVariadic:         param.IsVariadic,
 			IsByRef:            param.IsByRef,
@@ -690,6 +732,17 @@ func paramsFromNodesWithPHPDoc(nodes []ast.Node, doc *ast.PHPDocNode, ft FileTyp
 		})
 	}
 	return params
+}
+
+func hasNestedIterableValueTemplate(documented, native string, templates map[string]struct{}) bool {
+	if !strings.EqualFold(strings.TrimSpace(native), "iterable") {
+		return false
+	}
+	instance, ok := parseExactGenericTypeFromString(strings.TrimSpace(documented))
+	if !ok || !strings.EqualFold(instance.ClassName, "iterable") || len(instance.TypeArguments) != 2 {
+		return false
+	}
+	return phpDocUsesTemplate(instance.TypeArguments[1], templates)
 }
 
 func documentedParamTypePreservingNativeNull(native, documented string) string {

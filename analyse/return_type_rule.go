@@ -201,6 +201,9 @@ func (r *ReturnTypeRule) checkFunctionReturnType(filename string, fn *ast.Functi
 	}
 	for _, ret := range observedReturns {
 		actualType := ret.Type
+		if enumCaseReturnMatches(declaredType, ret.Expr, scope, ctx) {
+			actualType = declaredType
+		}
 		// Preserve symbolic template identity where the declaration accepts it;
 		// otherwise its bound can establish compatibility with a native return.
 		if !declaredType.AcceptsWithContext(actualType, scope, ctx) {
@@ -270,6 +273,38 @@ func (r *ReturnTypeRule) checkFunctionReturnType(filename string, fn *ast.Functi
 		return []error{firstMismatch}
 	}
 	return nil
+}
+
+func enumCaseReturnMatches(declared Type, expr ast.Node, scope *functionScope, ctx *AnalysisContext) bool {
+	fetch, ok := expr.(*ast.ClassConstFetchNode)
+	if !ok || fetch == nil || fetch.Const == "" || fetch.Const == "class" || scope == nil || ctx == nil || ctx.Resolver == nil {
+		return false
+	}
+	declaredName, ok := declared.SingleClassName()
+	if !ok {
+		return false
+	}
+	separator := strings.LastIndex(declaredName, "::")
+	if separator <= 0 || separator+2 == len(declaredName) {
+		return false
+	}
+	expectedEnum := strings.TrimPrefix(declaredName[:separator], `\`)
+	expectedCase := declaredName[separator+2:]
+	className := scope.typeCtx.resolveClassLike(fetch.Class)
+	switch asciiLowerIdent(strings.TrimPrefix(fetch.Class, `\`)) {
+	case "self", "static":
+		className = scope.className
+	}
+	className = strings.TrimPrefix(className, `\`)
+	if !strings.EqualFold(className, expectedEnum) || !strings.EqualFold(fetch.Const, expectedCase) {
+		return false
+	}
+	class, ok := ctx.Resolver.ResolveClass(className)
+	if !ok || class.Kind != "enum" {
+		return false
+	}
+	_, ok = ctx.Resolver.ResolveConstant(className, fetch.Const)
+	return ok
 }
 
 func returnsSameDocumentedParameter(fn *ast.FunctionNode, class *ast.ClassNode, typeCtx FileTypeContext, declaredType Type, returns []observedReturn) bool {
@@ -364,7 +399,7 @@ func appendReturnTypeOnNode(filename string, node ast.Node, class *ast.ClassNode
 			}
 			*issues = append(*issues, issue(filename, ret.Pos, returnNeverCode, fmt.Sprintf("Function %s should never return", name)))
 		}
-		if !hasModifier(fn.Modifiers, "abstract") && !functionContainsYield(fn) && functionMayFallThrough(fn, filename, ctx) {
+		if !hasModifier(fn.Modifiers, "abstract") && !functionContainsYield(fn) && functionMayFallThrough(fn, filename, ctx, scope) {
 			name := fn.Name
 			if name == "" {
 				name = "closure"
@@ -417,21 +452,21 @@ func missingReturnValue(fn *ast.FunctionNode, class *ast.ClassNode, filename str
 	if fn == nil || declared.IsEmpty() || declared.String() == "void" || declared.String() == "never" || hasModifier(fn.Modifiers, "abstract") || functionContainsYield(fn) {
 		return false
 	}
-	return functionMayFallThrough(fn, filename, ctx)
+	return functionMayFallThrough(fn, filename, ctx, analysisFunctionScope(ctx, class, fn, typeCtx))
 }
 
-func functionMayFallThrough(fn *ast.FunctionNode, filename string, ctx *AnalysisContext) bool {
+func functionMayFallThrough(fn *ast.FunctionNode, filename string, ctx *AnalysisContext, scope *functionScope) bool {
 	if fn == nil {
 		return false
 	}
 	if ctx != nil && ctx.Flow != nil {
-		if scope, ok := FlowScopeKeyForNode(filename, "function", fn, fn.Body); ok {
-			if mayFallThrough, found := ctx.Flow.ScopeMayFallThrough(scope); found {
-				return mayFallThrough
+		if flowScope, ok := FlowScopeKeyForNode(filename, "function", fn, fn.Body); ok {
+			if mayFallThrough, found := ctx.Flow.ScopeMayFallThrough(flowScope); found {
+				return mayFallThrough && !statementsTerminateWithContext(fn.Body, scope, ctx)
 			}
 		}
 	}
-	return !statementsTerminate(fn.Body)
+	return !statementsTerminateWithContext(fn.Body, scope, ctx)
 }
 
 func functionContainsYield(fn *ast.FunctionNode) bool {
@@ -450,6 +485,14 @@ func collectObservedReturns(filename string, nodes []ast.Node, scope *functionSc
 
 func inferReturnTypeWithFacts(filename string, expr ast.Node, scope *functionScope, ctx *AnalysisContext) Type {
 	inferred, authoritativeFact := inferTypeWithFactSource(filename, expr, scope, ctx)
+	if variable, ok := expr.(*ast.VariableNode); ok && scope != nil {
+		if contextual, found := scope.variable(variable.Name); found && !contextual.IsEmpty() {
+			_, inferredStringLiteral := singleStringLiteralValue(inferred)
+			if inferred.IsEmpty() || (inferred.hasBuiltin("string") || inferredStringLiteral) && typeGuaranteesNonEmptyString(contextual) || inferred.hasBuiltin("int") && contextual.hasAnyIntegerRefinement() || inferred.Accepts(contextual) && !contextual.Accepts(inferred) {
+				inferred = contextual
+			}
+		}
+	}
 	if inferred.hasStringLiteralAtom() {
 		return inferred
 	}
@@ -481,18 +524,18 @@ func inferReturnTypeWithFacts(filename string, expr ast.Node, scope *functionSco
 			}
 		case *ast.TernaryExpr:
 			trueScope := scopeForConditionTrue(scope, node.Condition, ctx)
-			ifTrue := inferTernaryReturnBranch(node.IfTrue, trueScope, ctx)
+			ifTrue := inferBranchExpressionType(node.IfTrue, trueScope, ctx)
 			if node.IfTrue == nil || node.IfTrue == node.Condition {
-				ifTrue = inferTernaryReturnBranch(node.Condition, trueScope, ctx).withoutBuiltin("false").withoutBuiltin("null")
+				ifTrue = inferBranchExpressionType(node.Condition, trueScope, ctx).withoutBuiltin("false").withoutBuiltin("null")
 			}
 			falseScope := scopeForConditionFalse(scope, node.Condition, ctx)
-			return unionInferredTypes(ifTrue, inferTernaryReturnBranch(node.IfFalse, falseScope, ctx))
+			return unionInferredTypes(ifTrue, inferBranchExpressionType(node.IfFalse, falseScope, ctx))
 		}
 	}
 	return inferred
 }
 
-func inferTernaryReturnBranch(expr ast.Node, scope *functionScope, ctx *AnalysisContext) Type {
+func inferBranchExpressionType(expr ast.Node, scope *functionScope, ctx *AnalysisContext) Type {
 	inferred := inferType(expr, scope, ctx)
 	switch node := expr.(type) {
 	case *ast.IntegerLiteral:
@@ -564,7 +607,13 @@ func collectObservedReturnsUsing(filename string, nodes []ast.Node, scope *funct
 		case *ast.WhileNode:
 			returns = append(returns, collectObservedReturnsUsing(filename, n.Body, scopeForConditionTrue(scope, n.Condition, ctx), ctx, infer)...)
 		case *ast.DoWhileNode:
-			returns = append(returns, collectObservedReturnsUsing(filename, n.Body, scope.clone(), ctx, infer)...)
+			loopScope := scope.clone()
+			returns = append(returns, collectObservedReturnsUsing(filename, n.Body, loopScope, ctx, infer)...)
+			for name := range doWhileStraightLineAssignments(n.Body) {
+				if typ, ok := loopScope.variable(name); ok {
+					scope.setVariable(name, typ)
+				}
+			}
 		case *ast.ForNode:
 			for _, expression := range n.Init {
 				applyExpressionScope(scope, expression, ctx)
@@ -578,6 +627,32 @@ func collectObservedReturnsUsing(filename string, nodes []ast.Node, scope *funct
 		}
 	}
 	return returns
+}
+
+// doWhileStraightLineAssignments returns variables assigned by every execution
+// of a straight-line do/while body. Unlike while/foreach bodies, a do/while body
+// runs at least once, so these assignments are available after the loop.
+func doWhileStraightLineAssignments(nodes []ast.Node) map[string]struct{} {
+	assigned := make(map[string]struct{})
+	for _, node := range nodes {
+		var expression ast.Node
+		switch statement := node.(type) {
+		case *ast.ExpressionStmt:
+			expression = statement.Expr
+		case *ast.AssignmentNode:
+			expression = statement
+		default:
+			return nil
+		}
+		assignment, ok := expression.(*ast.AssignmentNode)
+		if !ok {
+			continue
+		}
+		if variable, ok := assignment.Left.(*ast.VariableNode); ok {
+			assigned[variable.Name] = struct{}{}
+		}
+	}
+	return assigned
 }
 
 func inferTypeWithFacts(filename string, expr ast.Node, scope *functionScope, ctx *AnalysisContext) Type {
@@ -663,18 +738,29 @@ func inferType(expr ast.Node, scope *functionScope, ctx *AnalysisContext) Type {
 		}
 		return MixedType()
 	case *ast.ConcatNode:
+		if expressionHasGuaranteedNonEmptyStringPart(n, scope, ctx) {
+			return ParseType("non-empty-string")
+		}
+		return ParseType("string")
+	case *ast.InterpolatedStringLiteral:
+		if expressionHasGuaranteedNonEmptyStringPart(n, scope, ctx) {
+			return ParseType("non-empty-string")
+		}
 		return ParseType("string")
 	case *ast.ExpressionStmt:
 		return inferType(n.Expr, scope, ctx)
 	case *ast.TypeCastNode:
+		if asciiLowerIdent(n.Type) == "string" && typeContainsOnlyNumericAtoms(inferType(n.Expr, scope, ctx)) {
+			return ParseType("numeric-string")
+		}
 		return ParseType(n.Type)
 	case *ast.TernaryExpr:
 		trueScope := scopeForConditionTrue(scope, n.Condition, ctx)
-		ifTrue := inferType(n.IfTrue, trueScope, ctx)
+		ifTrue := inferBranchExpressionType(n.IfTrue, trueScope, ctx)
 		if n.IfTrue == nil || n.IfTrue == n.Condition {
 			ifTrue = inferType(n.Condition, trueScope, ctx).withoutBuiltin("false").withoutBuiltin("null")
 		}
-		return unionInferredTypes(ifTrue, inferType(n.IfFalse, scopeForConditionFalse(scope, n.Condition, ctx), ctx))
+		return unionInferredTypes(ifTrue, inferBranchExpressionType(n.IfFalse, scopeForConditionFalse(scope, n.Condition, ctx), ctx))
 	case *ast.UnaryExpr:
 		switch n.Operator {
 		case "clone":
@@ -693,6 +779,9 @@ func inferType(expr ast.Node, scope *functionScope, ctx *AnalysisContext) Type {
 		}
 		return ParseType(inferFallbackType(n))
 	case *ast.BinaryExpr:
+		if n.Operator == "." && expressionHasGuaranteedNonEmptyStringPart(n, scope, ctx) {
+			return ParseType("non-empty-string")
+		}
 		if n.Operator == "??" {
 			return unionInferredTypes(inferType(n.Left, scope, ctx).withoutBuiltin("null"), inferType(n.Right, scope, ctx))
 		}
@@ -709,7 +798,11 @@ func inferType(expr ast.Node, scope *functionScope, ctx *AnalysisContext) Type {
 	case *ast.MatchNode:
 		armTypes := make([]Type, 0, len(n.Arms))
 		for _, arm := range n.Arms {
-			armTypes = append(armTypes, inferType(arm.Body, scope, ctx))
+			armScope := scope
+			if isTrueLiteralExpression(n.Condition) && len(arm.Conditions) == 1 {
+				armScope = scopeForConditionTrue(scope, arm.Conditions[0], ctx)
+			}
+			armTypes = append(armTypes, inferBranchExpressionType(arm.Body, armScope, ctx))
 		}
 		return unionInferredTypes(armTypes...)
 	case *ast.VariableNode:
@@ -727,6 +820,136 @@ func inferType(expr ast.Node, scope *functionScope, ctx *AnalysisContext) Type {
 		}
 		return ParseType(inferFallbackType(n))
 	}
+}
+
+func typeContainsOnlyNumericAtoms(typ Type) bool {
+	if len(typ.atoms) == 0 {
+		return false
+	}
+	for _, atom := range typ.atoms {
+		if atom.key == "float" || atom.key == "numeric-string" || atom.key == "non-empty-numeric-string" {
+			continue
+		}
+		if _, ok := integerAtomInterval(atom); ok {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func isTrueLiteralExpression(expr ast.Node) bool {
+	switch node := expr.(type) {
+	case *ast.BooleanLiteral:
+		return node.Value
+	case *ast.BooleanNode:
+		return node.Value
+	default:
+		return false
+	}
+}
+
+func expressionHasGuaranteedNonEmptyStringPart(expr ast.Node, scope *functionScope, ctx *AnalysisContext) bool {
+	switch node := expr.(type) {
+	case *ast.StringLiteral:
+		return node.Value != ""
+	case *ast.StringNode:
+		return node.Value != ""
+	case *ast.ConcatNode:
+		for _, part := range node.Parts {
+			if expressionHasGuaranteedNonEmptyStringPart(part, scope, ctx) {
+				return true
+			}
+		}
+		return false
+	case *ast.BinaryExpr:
+		if node.Operator == "." {
+			return expressionHasGuaranteedNonEmptyStringPart(node.Left, scope, ctx) || expressionHasGuaranteedNonEmptyStringPart(node.Right, scope, ctx)
+		}
+	case *ast.InterpolatedStringLiteral:
+		for _, part := range node.Parts {
+			if expressionHasGuaranteedNonEmptyStringPart(part, scope, ctx) {
+				return true
+			}
+		}
+	case *ast.ArrayAccessNode:
+		if stringOffsetIsKnownNonEmpty(node, scope, ctx) {
+			return true
+		}
+	default:
+		typ := inferType(expr, scope, ctx)
+		if typeGuaranteesNonEmptyString(typ) {
+			return true
+		}
+		if enumValuePropertyHasNonEmptyCases(expr, scope, ctx) {
+			return true
+		}
+	}
+	return false
+}
+
+func stringOffsetIsKnownNonEmpty(node *ast.ArrayAccessNode, scope *functionScope, ctx *AnalysisContext) bool {
+	if node == nil || node.Index == nil {
+		return false
+	}
+	base, ok := singleStringLiteralValue(inferType(node.Var, scope, ctx))
+	if !ok || base == "" {
+		return false
+	}
+	index := inferType(node.Index, scope, ctx)
+	if len(index.alternatives) != 1 || len(index.atoms) != 1 {
+		return false
+	}
+	for _, atom := range index.atoms {
+		interval, ok := integerAtomInterval(atom)
+		if !ok || interval.lowerUnbounded || interval.upperUnbounded || interval.lower < 0 || interval.upper >= int64(len(base)) {
+			return false
+		}
+		return true
+	}
+	return false
+}
+
+func typeGuaranteesNonEmptyString(typ Type) bool {
+	if typ.hasBuiltin("non-empty-string") {
+		return true
+	}
+	if value, ok := singleStringLiteralValue(typ); ok {
+		return value != ""
+	}
+	return typ.hasOnlyNonEmptyStringLiteralAtoms()
+}
+
+func enumValuePropertyHasNonEmptyCases(expr ast.Node, scope *functionScope, ctx *AnalysisContext) bool {
+	property, ok := expr.(*ast.PropertyFetchNode)
+	if !ok || property.Property != "value" || ctx == nil || ctx.Resolver == nil {
+		return false
+	}
+	className, ok := inferType(property.Object, scope, ctx).SingleClassName()
+	if !ok {
+		return false
+	}
+	class, ok := ctx.Resolver.ResolveClass(className)
+	if !ok || class.Kind != "enum" {
+		return false
+	}
+	valueProperty, ok := ctx.Resolver.ResolveProperty(className, "value")
+	if !ok || valueProperty.ValueType == "" {
+		return false
+	}
+	return ParseType(valueProperty.ValueType).hasOnlyNonEmptyStringLiteralAtoms()
+}
+
+func singleStringLiteralValue(typ Type) (string, bool) {
+	if len(typ.atoms) != 1 {
+		return "", false
+	}
+	for key := range typ.atoms {
+		if strings.HasPrefix(key, "string-literal:") {
+			return strings.TrimPrefix(key, "string-literal:"), true
+		}
+	}
+	return "", false
 }
 
 // inferFunctionCallType handles indexed and known built-in function return types.
@@ -1299,7 +1522,7 @@ func newFunctionScopeWithContext(ctx *AnalysisContext, class *ast.ClassNode, fn 
 	scope.templateBounds = templateBounds
 	templates := phpDocTemplateNames(class, fn.PHPDoc)
 
-	for _, paramNode := range fn.Params {
+	for paramIndex, paramNode := range fn.Params {
 		param, ok := paramNode.(*ast.ParamNode)
 		if !ok {
 			continue
@@ -1316,6 +1539,16 @@ func newFunctionScopeWithContext(ctx *AnalysisContext, class *ast.ClassNode, fn 
 				nativeType = paramType.String()
 			}
 			paramType = ParseType(documentedParamTypePreservingNativeNull(nativeType, normalizeTemplateAwareType(documentedType, typeCtx, templates)))
+		} else if inherited := inheritedMethodParameterType(ctx, scope.className, fn.Name, paramIndex, make(map[string]struct{})); inherited != "" {
+			if openTemplateParamName(inherited, ctx) == "" {
+				// Resolver method signatures are normalized when indexed. Resolving
+				// them again in the implementation's namespace can qualify an FQN a
+				// second time (for example, Vendor\Type becoming Child\Vendor\Type).
+				inheritedType := ParseType(inherited)
+				if paramType.IsEmpty() || paramType.Accepts(inheritedType) {
+					paramType = inheritedType
+				}
+			}
 		}
 		if paramType.IsEmpty() && param.DefaultValue != nil {
 			paramType = inferType(param.DefaultValue, scope, nil)
@@ -1374,6 +1607,32 @@ func newFunctionScopeWithContext(ctx *AnalysisContext, class *ast.ClassNode, fn 
 	}
 
 	return scope
+}
+
+func inheritedMethodParameterType(ctx *AnalysisContext, className, methodName string, paramIndex int, seen map[string]struct{}) string {
+	if ctx == nil || ctx.Resolver == nil || className == "" || methodName == "" || paramIndex < 0 {
+		return ""
+	}
+	key := asciiLowerIdent(strings.TrimPrefix(className, `\`))
+	if _, exists := seen[key]; exists {
+		return ""
+	}
+	seen[key] = struct{}{}
+	class, ok := ctx.Resolver.ResolveClass(className)
+	if !ok {
+		return ""
+	}
+	parents := append(append([]string(nil), class.Implements...), class.Extends...)
+	for _, parent := range parents {
+		method, found := ctx.Resolver.ResolveMethod(parent, methodName)
+		if found && paramIndex < len(method.Params) && strings.TrimSpace(method.Params[paramIndex].Type) != "" {
+			return method.Params[paramIndex].Type
+		}
+		if inherited := inheritedMethodParameterType(ctx, parent, methodName, paramIndex, seen); inherited != "" {
+			return inherited
+		}
+	}
+	return ""
 }
 
 func localTemplateBounds(class *ast.ClassNode, fn *ast.FunctionNode, typeCtx FileTypeContext) map[string]string {
@@ -1457,8 +1716,17 @@ func buildClassScopeDataWithSeen(class *ast.ClassNode, typeCtx FileTypeContext, 
 				propertyType = ParseType("callable")
 				data.propertyCallableReturns[property.Name] = callableReturn
 			} else {
-				documented := ParseType(normalizeTypeWithContext(property.PHPDoc.VarType, typeCtx))
-				if propertyType.IsEmpty() || documented.hasMockObjectType() || documented.hasIntersectionAlternative() || propertyType.hasBuiltin("string") && documented.hasStringLiteralAtom() {
+				propertyTemplates := phpDocTemplateNames(class, nil)
+				documented := ParseType(normalizeTemplateAwareType(
+					property.PHPDoc.VarType,
+					typeCtx,
+					propertyTemplates,
+				))
+				documentedTemplate := asciiLowerIdent(strings.TrimSpace(property.PHPDoc.VarType))
+				_, isBareTemplate := propertyTemplates[documentedTemplate]
+				if phpDocRefinesNativeType(documented, propertyType) ||
+					phpDocGenericRefinesNativeType(documented, propertyType) ||
+					isBareTemplate {
 					if !documented.IsEmpty() {
 						propertyType = documented
 					}
@@ -1969,9 +2237,17 @@ func promotedClassProperties(class *ast.ClassNode, typeCtx FileTypeContext, scop
 				continue
 			}
 			paramType := TypeFromAST(param.TypeHint, typeCtx)
-			if paramType.IsEmpty() && method.PHPDoc != nil {
+			if method.PHPDoc != nil {
 				documented := expandPHPDocTypeAliases(method.PHPDoc.GetParamTypeFromPHPDoc(param.Name), phpDocTypeAliasBindings(class.PHPDoc, method.PHPDoc))
-				paramType = ParseType(normalizeTypeWithContext(documented, typeCtx))
+				if documented != "" {
+					templates := phpDocTemplateNames(class, method.PHPDoc)
+					documentedType := ParseType(normalizeTemplateAwareType(documented, typeCtx, templates))
+					documentedTemplate := asciiLowerIdent(strings.TrimSpace(documented))
+					_, isBareTemplate := templates[documentedTemplate]
+					if paramType.IsEmpty() || isBareTemplate || promotedPHPDocRefinesNativeType(documentedType, paramType) {
+						paramType = documentedType
+					}
+				}
 			}
 			if paramType.IsEmpty() && param.DefaultValue != nil {
 				paramType = inferType(param.DefaultValue, scope, nil)
@@ -1983,6 +2259,10 @@ func promotedClassProperties(class *ast.ClassNode, typeCtx FileTypeContext, scop
 		}
 	}
 	return properties
+}
+
+func phpDocRefinesNativeType(documented, native Type) bool {
+	return native.IsEmpty() || documented.hasMockObjectType() || documented.hasIntersectionAlternative() || documented.hasOnlyBuiltinAtoms() && native.Accepts(documented)
 }
 
 func (s *functionScope) clone() *functionScope {
@@ -2407,7 +2687,12 @@ func applyVarDocScope(scope *functionScope, doc *ast.PHPDocNode, assignment *ast
 		name = left.Name
 	}
 	raw = expandPHPDocTypeAliases(raw, scope.typeAliases)
+	templates := scopeTemplateNames(scope)
 	normalized := normalizeTypeWithContext(raw, scope.typeCtx)
+	bareTemplate := strings.TrimSpace(strings.TrimPrefix(raw, "?"))
+	if isKnownTemplateName(bareTemplate, templates) || isTemplateOnlyUnionType(raw, templates) {
+		normalized = normalizeTemplateAwareType(raw, scope.typeCtx, templates)
+	}
 	typ := ParseType(normalized)
 	if typ.IsEmpty() {
 		return
@@ -2432,6 +2717,26 @@ func applyVarDocScope(scope *functionScope, doc *ast.PHPDocNode, assignment *ast
 	if params := resolvedCallableParamTypes(raw, scope.typeCtx, nil); len(params) > 0 {
 		scope.setCallableParams(name, params)
 	}
+}
+
+func isTemplateOnlyUnionType(raw string, templates map[string]struct{}) bool {
+	parts := splitTopLevelTypes(strings.TrimSpace(raw), '|')
+	if len(parts) < 2 {
+		return false
+	}
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" || strings.ContainsAny(part, `&<>()`) {
+			return false
+		}
+		if isKnownTemplateName(strings.TrimPrefix(part, "?"), templates) {
+			continue
+		}
+		if atom, ok := normalizeTypeAtom(strings.TrimPrefix(part, "?")); !ok || atom.kind != typeKindBuiltin {
+			return false
+		}
+	}
+	return true
 }
 
 func assertionCondition(expr ast.Node) (ast.Node, bool) {
@@ -2459,6 +2764,9 @@ func applyAssignmentScope(scope *functionScope, assignment *ast.AssignmentNode, 
 	}
 
 	assignedType := inferType(assignment.Right, scope, ctx)
+	if assignment.Operator == ".=" {
+		assignedType = inferType(&ast.ConcatNode{Parts: []ast.Node{assignment.Left, assignment.Right}}, scope, ctx)
+	}
 	if refined := refineLiteralAssignmentType(assignment.Right, assignedType); !refined.IsEmpty() {
 		assignedType = refined
 	}
@@ -2645,6 +2953,34 @@ func inferPropertyFetchType(node *ast.PropertyFetchNode, scope *functionScope, c
 	return MixedType()
 }
 
+func inferBackedEnumCaseValueType(expr ast.Node, scope *functionScope, ctx *AnalysisContext) Type {
+	property, ok := expr.(*ast.PropertyFetchNode)
+	if !ok || property.Property != "value" || scope == nil || ctx == nil || ctx.Resolver == nil {
+		return EmptyType()
+	}
+	enumCase, ok := property.Object.(*ast.ClassConstFetchNode)
+	if !ok || enumCase.Const == "class" {
+		return EmptyType()
+	}
+	className := scope.typeCtx.resolveClassLike(enumCase.Class)
+	switch asciiLowerIdent(strings.TrimPrefix(enumCase.Class, `\`)) {
+	case "self", "static":
+		className = scope.className
+	}
+	if className == "" {
+		return EmptyType()
+	}
+	class, ok := ctx.Resolver.ResolveClass(className)
+	if !ok || class.Kind != "enum" {
+		return EmptyType()
+	}
+	constant, ok := ctx.Resolver.ResolveConstant(className, enumCase.Const)
+	if !ok || constant.ValueType == "" {
+		return EmptyType()
+	}
+	return ParseType(constant.ValueType)
+}
+
 func inferredMethodReturnType(method ResolvedMethod, calleeClass string, ctx *AnalysisContext) Type {
 	return inferredMethodReturnTypeWithBindings(method, calleeClass, ctx, nil)
 }
@@ -2717,6 +3053,14 @@ func bindCallSiteMethodTemplates(method ResolvedMethod, args []ast.Node, scope *
 		if name == "" && isKnownTemplateName(method.Params[paramIndex].Type, declaredNames) {
 			name = method.Params[paramIndex].Type
 		}
+		directTemplate := isKnownTemplateName(method.Params[paramIndex].Type, declaredNames)
+		callableReturn := EmptyType()
+		if !directTemplate && phpDocUsesTemplate(method.Params[paramIndex].CallableReturnType, declaredNames) {
+			callableReturn = inferCallableInvocationReturn(argExpr, scope, ctx)
+			if template := method.Params[paramIndex].CallableReturnType; isKnownTemplateName(template, declaredNames) {
+				name = template
+			}
+		}
 		classStringParam := isKnownTemplateName(method.Params[paramIndex].Type, declaredNames) &&
 			strings.Contains(declared[name], "class-string")
 		for _, part := range splitTopLevelTypes(method.Params[paramIndex].Type, '|') {
@@ -2729,14 +3073,23 @@ func bindCallSiteMethodTemplates(method ResolvedMethod, args []ast.Node, scope *
 			}
 		}
 		if phpDocUsesTemplate(method.Params[paramIndex].Type, declaredNames) ||
-			phpDocUsesTemplate(method.Params[paramIndex].CallableReturnType, declaredNames) {
+			(phpDocUsesTemplate(method.Params[paramIndex].CallableReturnType, declaredNames) && callableReturn.IsEmpty()) {
 			continue
+		}
+		if name == "" && !callableReturn.IsEmpty() {
+			name = openTemplateParamName(method.ReturnType, ctx)
 		}
 		if name == "" {
 			continue
 		}
 		if isClassStringTemplateParam(method.Params[paramIndex].Type, method.ReturnType, ctx) {
 			continue
+		}
+		if !callableReturn.IsEmpty() {
+			if label := strings.TrimSpace(callableReturn.dnfString()); label != "" {
+				bindings[name] = label
+				continue
+			}
 		}
 		actual := inferTypeWithFacts(filename, argExpr, scope, ctx)
 		if label := strings.TrimSpace(actual.String()); label != "" {
@@ -2762,6 +3115,52 @@ func bindCallSiteMethodTemplates(method ResolvedMethod, args []ast.Node, scope *
 		return nil
 	}
 	return bindings
+}
+
+func bindTemplatesFromMatchingGenericTypes(expected, actual string, templates map[string]struct{}, bindings map[string]string) {
+	expected = strings.TrimSpace(expected)
+	actual = strings.TrimSpace(actual)
+	if isKnownTemplateName(expected, templates) {
+		if actual != "" {
+			if _, exists := bindings[expected]; !exists {
+				bindings[expected] = actual
+			}
+		}
+		return
+	}
+	expectedInstance, expectedOK := parseExactGenericTypeFromString(expected)
+	actualInstance, actualOK := parseExactGenericTypeFromString(actual)
+	if !expectedOK || !actualOK || !strings.EqualFold(eraseGenericArgs(expectedInstance.ClassName), eraseGenericArgs(actualInstance.ClassName)) {
+		return
+	}
+	if isBuiltinArrayGeneric(expectedInstance.ClassName) && len(expectedInstance.TypeArguments) == 2 && len(actualInstance.TypeArguments) == 1 {
+		bindTemplatesFromMatchingGenericTypes(expectedInstance.TypeArguments[1], actualInstance.TypeArguments[0], templates, bindings)
+		return
+	}
+	limit := len(expectedInstance.TypeArguments)
+	if len(actualInstance.TypeArguments) < limit {
+		limit = len(actualInstance.TypeArguments)
+	}
+	for i := 0; i < limit; i++ {
+		bindTemplatesFromMatchingGenericTypes(expectedInstance.TypeArguments[i], actualInstance.TypeArguments[i], templates, bindings)
+	}
+}
+
+func inferCallArgumentTypeString(filename string, expr ast.Node, scope *functionScope, ctx *AnalysisContext) string {
+	if variable, ok := expr.(*ast.VariableNode); ok && scope != nil {
+		if instance, found := scope.genericContext[variable.Name]; found && len(instance.TypeArguments) > 0 {
+			arguments := make([]string, len(instance.TypeArguments))
+			templates := make(map[string]struct{}, len(scope.templateBounds))
+			for name := range scope.templateBounds {
+				templates[name] = struct{}{}
+			}
+			for i, argument := range instance.TypeArguments {
+				arguments[i] = normalizeTemplateAwareType(argument, scope.typeCtx, templates)
+			}
+			return instance.ClassName + "<" + strings.Join(arguments, ", ") + ">"
+		}
+	}
+	return inferTypeWithFacts(filename, expr, scope, ctx).String()
 }
 
 func templateNameFromParamType(raw, methodReturnType string, ctx *AnalysisContext) string {

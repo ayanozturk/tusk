@@ -135,12 +135,9 @@ func resolveInheritedConstructor(className string, scope *functionScope, ctx *An
 	if className == "" {
 		return ResolvedMethod{}, false
 	}
-	if isBuiltinExceptionClass(className, scope, ctx) {
-		return builtinExceptionConstructor(), true
-	}
-
 	seen := map[string]struct{}{}
 	queue := []string{className}
+	builtinExceptionAncestor := false
 	for len(queue) > 0 {
 		current := strings.TrimPrefix(queue[0], `\`)
 		queue = queue[1:]
@@ -165,10 +162,13 @@ func resolveInheritedConstructor(className string, scope *functionScope, ctx *An
 				}
 			}
 			if isBuiltinExceptionClass(parent, scope, ctx) {
-				return builtinExceptionConstructor(), true
+				builtinExceptionAncestor = true
 			}
 			queue = append(queue, parent)
 		}
+	}
+	if builtinExceptionAncestor || isBuiltinExceptionClass(className, scope, ctx) {
+		return builtinExceptionConstructor(), true
 	}
 
 	return ResolvedMethod{}, false

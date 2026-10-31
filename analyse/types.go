@@ -344,20 +344,56 @@ func (t Type) AcceptsWithContext(actual Type, scope *functionScope, ctx *Analysi
 		return true
 	}
 
-	for _, actualAtom := range actual.sortedAtoms() {
-		matched := false
-		for _, declaredAtom := range t.sortedAtoms() {
-			if atomsCompatibleWithContext(declaredAtom, actualAtom, scope, ctx) {
-				matched = true
+	// Every union branch in the actual type must satisfy at least one branch
+	// in the declaration. An actual intersection can satisfy a narrower
+	// declaration when one of its members is compatible; flattening its atoms
+	// here incorrectly treats the intersection as a union.
+	for _, actualAlternative := range typeAlternativeKeys(actual) {
+		matchedDeclaredAlternative := false
+		for _, declaredAlternative := range typeAlternativeKeys(t) {
+			declaredAlternativeMatches := true
+			for _, declaredKey := range declaredAlternative {
+				declaredAtom, ok := t.atoms[declaredKey]
+				if !ok {
+					declaredAlternativeMatches = false
+					break
+				}
+				memberMatches := false
+				for _, actualKey := range actualAlternative {
+					actualAtom, ok := actual.atoms[actualKey]
+					if ok && atomsCompatibleWithContext(declaredAtom, actualAtom, scope, ctx) {
+						memberMatches = true
+						break
+					}
+				}
+				if !memberMatches {
+					declaredAlternativeMatches = false
+					break
+				}
+			}
+			if declaredAlternativeMatches {
+				matchedDeclaredAlternative = true
 				break
 			}
 		}
-		if !matched {
+		if !matchedDeclaredAlternative {
 			return false
 		}
 	}
 
 	return true
+}
+
+func typeAlternativeKeys(typ Type) [][]string {
+	if len(typ.alternatives) > 0 {
+		return typ.alternatives
+	}
+	atoms := typ.sortedAtoms()
+	alternatives := make([][]string, len(atoms))
+	for i, atom := range atoms {
+		alternatives[i] = []string{atom.key}
+	}
+	return alternatives
 }
 
 func (t Type) acceptsObjectLike() bool {
@@ -578,6 +614,49 @@ func (t Type) withoutResolvedFinalClass(className string) Type {
 	return ParseType(strings.Join(parts, "|"))
 }
 
+// withoutExactClassAlternative removes union alternatives that are exactly a
+// known class or interface type. Every value represented by that alternative
+// satisfies an instanceof check against the same resolved name, even when the
+// class or interface is not final.
+func (t Type) withoutExactClassAlternative(className string) Type {
+	if t.IsEmpty() || className == "" {
+		return t
+	}
+	want := asciiLowerIdent(strings.TrimPrefix(className, `\`))
+	parts := make([]string, 0, len(t.alternatives))
+	changed := false
+	for _, alternative := range typeAlternativeKeys(t) {
+		if len(alternative) == 1 {
+			if atom, ok := t.atoms[alternative[0]]; ok && atom.kind == typeKindClass && asciiLowerIdent(strings.TrimPrefix(atom.display, `\`)) == want {
+				changed = true
+				continue
+			}
+		}
+		members := make([]string, 0, len(alternative))
+		for _, key := range alternative {
+			if atom, ok := t.atoms[key]; ok {
+				members = append(members, atom.display)
+			}
+		}
+		if len(members) == 0 {
+			continue
+		}
+		sort.Strings(members)
+		part := strings.Join(members, "&")
+		if len(members) > 1 {
+			part = "(" + part + ")"
+		}
+		parts = append(parts, part)
+	}
+	if !changed {
+		return t
+	}
+	if len(parts) == 0 {
+		return ParseType("never")
+	}
+	return ParseType(strings.Join(parts, "|"))
+}
+
 func (t Type) hasClassAtom() bool {
 	for _, atom := range t.atoms {
 		if atom.kind == typeKindClass {
@@ -604,6 +683,23 @@ func (t Type) hasBuiltin(name string) bool {
 	return ok
 }
 
+func (t Type) hasOnlyBuiltinAtoms() bool {
+	if t.IsEmpty() {
+		return false
+	}
+	for _, atom := range t.atoms {
+		if atom.kind != typeKindBuiltin {
+			return false
+		}
+	}
+	for _, alternative := range t.alternatives {
+		if len(alternative) > 1 {
+			return false
+		}
+	}
+	return true
+}
+
 func (t Type) hasStringLiteralAtom() bool {
 	for key := range t.atoms {
 		if strings.HasPrefix(key, "string-literal:") {
@@ -611,6 +707,23 @@ func (t Type) hasStringLiteralAtom() bool {
 		}
 	}
 	return false
+}
+
+func (t Type) hasOnlyNonEmptyStringLiteralAtoms() bool {
+	if t.IsEmpty() {
+		return false
+	}
+	for key := range t.atoms {
+		if !strings.HasPrefix(key, "string-literal:") || key == "string-literal:" {
+			return false
+		}
+	}
+	for _, alternative := range t.alternatives {
+		if len(alternative) != 1 {
+			return false
+		}
+	}
+	return true
 }
 
 func (t Type) hasAnyIntegerRefinement() bool {
@@ -934,7 +1047,7 @@ func atomsCompatibleWithContext(declared, actual typeAtom, scope *functionScope,
 		}
 		switch declared.key {
 		case "non-empty-string":
-			if actual.key == "non-empty-lowercase-string" || actual.key == "non-empty-uppercase-string" || actual.key == "non-empty-numeric-string" || actual.key == "non-falsy-string" || actual.key == "truthy-string" {
+			if actual.key == "numeric-string" || actual.key == "non-empty-lowercase-string" || actual.key == "non-empty-uppercase-string" || actual.key == "non-empty-numeric-string" || actual.key == "non-falsy-string" || actual.key == "truthy-string" {
 				return true
 			}
 		case "lowercase-string":

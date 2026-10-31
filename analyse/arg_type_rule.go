@@ -140,6 +140,7 @@ func walkStatementsForArgTypesUsing(nodes []ast.Node, scope *functionScope, ctx 
 			recordAssignmentTypeIssues(n, scope, ctx, filename)
 			applyAssignmentScope(scope, n, ctx)
 		case *ast.ReturnNode:
+			applyVarDocScope(scope, n.PHPDoc, nil)
 			walkExprForArgTypesUsing(n.Expr, scope, ctx, filename, issues, observe)
 			observeSemanticExpression(filename, n.Expr, scope, ctx, observe)
 		case *ast.BreakNode:
@@ -214,6 +215,9 @@ func scopeForConditionTrue(scope *functionScope, condition ast.Node, ctx *Analys
 	if refined == nil {
 		return nil
 	}
+	if applySingleInstanceofConditionScope(refined, condition, true, ctx) {
+		return refined
+	}
 	if variable, ok := condition.(*ast.VariableNode); ok {
 		if stored := refined.truthyGuard(variable.Name); stored != nil {
 			applyConditionTrueScope(refined, stored, ctx)
@@ -226,15 +230,27 @@ func scopeForConditionTrue(scope *functionScope, condition ast.Node, ctx *Analys
 // scopeForConditionFalse keeps branch refinements local to the expression.
 // Reuse the existing guard rules rather than treating every falsy value as null.
 func scopeForConditionFalse(scope *functionScope, condition ast.Node, ctx *AnalysisContext) *functionScope {
-	if unary, ok := condition.(*ast.UnaryExpr); ok && unary.Operator == "!" {
-		return scopeForConditionTrue(scope, unary.Operand, ctx)
-	}
 	refined := scope.clone()
 	if refined == nil {
 		return nil
 	}
+	if binary, ok := condition.(*ast.BinaryExpr); ok && (binary.Operator == "&&" || binary.Operator == "and") {
+		// A false conjunction can result from a false left operand or from a
+		// false right operand after the left operand was true. Join both paths.
+		falseLeft := scopeForConditionFalse(scope, binary.Left, ctx)
+		trueLeft := scopeForConditionTrue(scope, binary.Left, ctx)
+		falseRight := scopeForConditionFalse(trueLeft, binary.Right, ctx)
+		joinFallthroughVariableTypes(refined, []*functionScope{falseLeft, falseRight})
+		return refined
+	}
+	if applySingleInstanceofConditionScope(refined, condition, false, ctx) {
+		return refined
+	}
+	if unary, ok := condition.(*ast.UnaryExpr); ok && unary.Operator == "!" {
+		return scopeForConditionTrue(scope, unary.Operand, ctx)
+	}
 	applyThisPropertyConditionScope(refined, condition, false, ctx)
-	for name, typ := range variablesTypedWhenFalse(condition, refined) {
+	for name, typ := range variablesTypedWhenFalse(condition, refined, ctx) {
 		if !typ.IsEmpty() {
 			refined.setVariable(name, typ)
 		}
@@ -261,6 +277,45 @@ func scopeForConditionFalse(scope *functionScope, condition ast.Node, ctx *Analy
 		}
 	}
 	return refined
+}
+
+func applySingleInstanceofConditionScope(scope *functionScope, condition ast.Node, whenTrue bool, ctx *AnalysisContext) bool {
+	parsed, ok := parseInstanceofCondition(condition)
+	if !ok || scope == nil {
+		return false
+	}
+	asserted := typeFromInstanceofTarget(parsed.target, scope)
+	if asserted.IsEmpty() {
+		return false
+	}
+	current, found := scope.variable(parsed.variable)
+	conditionImpliesInstanceof := whenTrue != parsed.negated
+	if conditionImpliesInstanceof {
+		if !found {
+			current = EmptyType()
+		}
+		scope.setVariable(parsed.variable, refineTypeByInstanceof(current, asserted))
+		return true
+	}
+	className, ok := asserted.SingleClassName()
+	if !ok || !found {
+		return false
+	}
+	refined := current.withoutExactClassAlternative(className)
+	if refined.String() != current.String() {
+		scope.setVariable(parsed.variable, refined)
+	}
+	return true
+}
+
+func hasNegatedInstanceofOnConjunctiveTruePath(condition ast.Node) bool {
+	if parsed, ok := parseInstanceofCondition(condition); ok {
+		return parsed.negated
+	}
+	if binary, ok := condition.(*ast.BinaryExpr); ok && (binary.Operator == "&&" || binary.Operator == "and") {
+		return hasNegatedInstanceofOnConjunctiveTruePath(binary.Left) || hasNegatedInstanceofOnConjunctiveTruePath(binary.Right)
+	}
+	return false
 }
 
 func variablesWithoutFinalInstanceofWhenFalse(node ast.Node, scope *functionScope, ctx *AnalysisContext) map[string]Type {
@@ -324,7 +379,7 @@ func applyConditionTrueScope(scope *functionScope, condition ast.Node, ctx *Anal
 	applyThisPropertyConditionScope(scope, condition, true, ctx)
 	applyMethodExistsGuards(scope, condition)
 	applyIsObjectPropertyGuards(scope, condition, ctx)
-	for variableName, typ := range variablesTypedWhenTrue(condition, scope) {
+	for variableName, typ := range variablesTypedWhenTrue(condition, scope, ctx) {
 		if !typ.IsEmpty() {
 			scope.setVariable(variableName, typ)
 		}
@@ -412,7 +467,23 @@ func methodExistsGuards(node ast.Node) []methodExistsGuard {
 	return nil
 }
 
-func variablesTypedWhenTrue(node ast.Node, scope *functionScope) map[string]Type {
+func variablesTypedWhenTrue(node ast.Node, scope *functionScope, contexts ...*AnalysisContext) map[string]Type {
+	var ctx *AnalysisContext
+	if len(contexts) > 0 {
+		ctx = contexts[0]
+	}
+	if condition, ok := parseInstanceofCondition(node); ok && condition.negated && scope != nil {
+		if asserted := typeFromInstanceofTarget(condition.target, scope); !asserted.IsEmpty() {
+			if className, ok := asserted.SingleClassName(); ok {
+				if current, found := scope.variable(condition.variable); found {
+					without := current.withoutExactClassAlternative(className)
+					if without.String() != current.String() {
+						return map[string]Type{condition.variable: without}
+					}
+				}
+			}
+		}
+	}
 	switch n := node.(type) {
 	case *ast.BinaryExpr:
 		switch n.Operator {
@@ -420,8 +491,8 @@ func variablesTypedWhenTrue(node ast.Node, scope *functionScope) map[string]Type
 			// A true disjunction may come from either side. The right side is
 			// evaluated under the left side's false refinements; only variables
 			// narrowed on both successful paths can be narrowed after the OR.
-			left := variablesTypedWhenTrue(n.Left, scope)
-			falseLeft := variablesTypedWhenFalse(n.Left, scope)
+			left := variablesTypedWhenTrue(n.Left, scope, ctx)
+			falseLeft := variablesTypedWhenFalse(n.Left, scope, ctx)
 			rightScope := scope
 			if scope != nil && len(falseLeft) > 0 {
 				rightScope = scope.clone()
@@ -429,7 +500,7 @@ func variablesTypedWhenTrue(node ast.Node, scope *functionScope) map[string]Type
 					rightScope.setVariable(name, typ)
 				}
 			}
-			right := variablesTypedWhenTrue(n.Right, rightScope)
+			right := variablesTypedWhenTrue(n.Right, rightScope, ctx)
 			joined := make(map[string]Type)
 			for name, leftType := range left {
 				if rightType, ok := right[name]; ok {
@@ -438,7 +509,7 @@ func variablesTypedWhenTrue(node ast.Node, scope *functionScope) map[string]Type
 			}
 			return joined
 		case "&&", "and":
-			types := variablesTypedWhenTrue(n.Left, scope)
+			types := variablesTypedWhenTrue(n.Left, scope, ctx)
 			rightScope := scope
 			if scope != nil && len(types) > 0 {
 				rightScope = scope.clone()
@@ -446,7 +517,7 @@ func variablesTypedWhenTrue(node ast.Node, scope *functionScope) map[string]Type
 					rightScope.setVariable(name, typ)
 				}
 			}
-			for name, typ := range variablesTypedWhenTrue(n.Right, rightScope) {
+			for name, typ := range variablesTypedWhenTrue(n.Right, rightScope, ctx) {
 				types[name] = typ
 			}
 			return types
@@ -470,6 +541,9 @@ func variablesTypedWhenTrue(node ast.Node, scope *functionScope) map[string]Type
 				}
 			}
 			if n.Operator == "===" {
+				if name, ok := emptyArrayComparedVariable(n.Left, n.Right); ok {
+					return map[string]Type{name: ParseType("empty-array")}
+				}
 				if name, ok := emptyStringComparedVariable(n.Left, n.Right); ok {
 					return map[string]Type{name: ParseType("empty-string")}
 				}
@@ -480,17 +554,20 @@ func variablesTypedWhenTrue(node ast.Node, scope *functionScope) map[string]Type
 				}
 			}
 		case "!=", "!==":
-			if n.Operator == "!==" {
-				if name, typ, ok := integerInequalityRefinement(n, scope); ok {
-					return map[string]Type{name: typ}
-				}
-			}
 			if name, ok := nullComparisonVariable(n.Left, n.Right); ok {
 				if typ, ok := nonNullVariableType(scope, name); ok {
 					return map[string]Type{name: typ}
 				}
 			}
 			if n.Operator == "!==" {
+				if name, typ, ok := integerInequalityRefinement(n, scope); ok {
+					return map[string]Type{name: typ}
+				}
+			}
+			if n.Operator == "!==" {
+				if name, ok := emptyArrayComparedVariable(n.Left, n.Right); ok {
+					return map[string]Type{name: ParseType("non-empty-array")}
+				}
 				if name, ok := emptyStringComparedVariable(n.Left, n.Right); ok {
 					if typ, ok := nonEmptyStringComparisonType(scope, name); ok {
 						return map[string]Type{name: typ}
@@ -526,7 +603,7 @@ func variablesTypedWhenTrue(node ast.Node, scope *functionScope) map[string]Type
 	case *ast.MethodCallNode:
 		return variablesTypedWhenObjectAccessTrue(n.Object, scope)
 	case *ast.FunctionCallNode:
-		if variableName, typ, ok := builtinTypePredicate(n); ok {
+		if variableName, typ, ok := builtinTypePredicate(n, scope); ok {
 			return map[string]Type{variableName: typ}
 		}
 	}
@@ -544,14 +621,18 @@ func variablesTypedWhenObjectAccessTrue(object ast.Node, scope *functionScope) m
 	return map[string]Type{}
 }
 
-func variablesTypedWhenFalse(node ast.Node, scope *functionScope) map[string]Type {
+func variablesTypedWhenFalse(node ast.Node, scope *functionScope, contexts ...*AnalysisContext) map[string]Type {
+	var ctx *AnalysisContext
+	if len(contexts) > 0 {
+		ctx = contexts[0]
+	}
 	switch n := node.(type) {
 	case *ast.BinaryExpr:
 		switch n.Operator {
 		case "||", "or":
 			// Both operands must be false. Refine the right operand under the
 			// left operand's false-path facts before combining the result.
-			types := variablesTypedWhenFalse(n.Left, scope)
+			types := variablesTypedWhenFalse(n.Left, scope, ctx)
 			rightScope := scope
 			if scope != nil && len(types) > 0 {
 				rightScope = scope.clone()
@@ -559,7 +640,7 @@ func variablesTypedWhenFalse(node ast.Node, scope *functionScope) map[string]Typ
 					rightScope.setVariable(name, typ)
 				}
 			}
-			for name, typ := range variablesTypedWhenFalse(n.Right, rightScope) {
+			for name, typ := range variablesTypedWhenFalse(n.Right, rightScope, ctx) {
 				types[name] = typ
 			}
 			return types
@@ -570,6 +651,9 @@ func variablesTypedWhenFalse(node ast.Node, scope *functionScope) map[string]Typ
 				}
 			}
 			if n.Operator == "===" {
+				if name, ok := emptyArrayComparedVariable(n.Left, n.Right); ok {
+					return map[string]Type{name: ParseType("non-empty-array")}
+				}
 				if name, ok := emptyStringComparedVariable(n.Left, n.Right); ok {
 					if typ, ok := nonEmptyStringComparisonType(scope, name); ok {
 						return map[string]Type{name: typ}
@@ -587,12 +671,18 @@ func variablesTypedWhenFalse(node ast.Node, scope *functionScope) map[string]Typ
 				}
 			}
 		case "!=", "!==":
+			if name, ok := nullComparisonVariable(n.Left, n.Right); ok {
+				return map[string]Type{name: ParseType("null")}
+			}
 			if n.Operator == "!==" {
 				if name, typ, ok := integerEqualityRefinement(n, scope); ok {
 					return map[string]Type{name: typ}
 				}
 			}
 			if n.Operator == "!==" {
+				if name, ok := emptyArrayComparedVariable(n.Left, n.Right); ok {
+					return map[string]Type{name: ParseType("empty-array")}
+				}
 				if name, ok := emptyStringComparedVariable(n.Left, n.Right); ok {
 					return map[string]Type{name: ParseType("empty-string")}
 				}
@@ -609,7 +699,15 @@ func variablesTypedWhenFalse(node ast.Node, scope *functionScope) map[string]Typ
 		}
 	case *ast.UnaryExpr:
 		if n.Operator == "!" {
-			return variablesTypedWhenTrue(n.Operand, scope)
+			return variablesTypedWhenTrue(n.Operand, scope, ctx)
+		}
+	case *ast.FunctionCallNode:
+		if variableName, asserted, ok := builtinTypePredicate(n, scope); ok && asserted.hasBuiltin("string") {
+			if current, found := scope.variable(variableName); found && current.hasBuiltin("string") {
+				if refined, remains := variableWithoutBuiltin(scope, variableName, "string"); remains {
+					return map[string]Type{variableName: refined}
+				}
+			}
 		}
 	}
 	return map[string]Type{}
@@ -860,9 +958,30 @@ func integerLiteralValue(node ast.Node) (int64, bool) {
 		return literal.Value, true
 	case *ast.IntegerNode:
 		return literal.Value, true
-	default:
-		return 0, false
+	case *ast.UnaryExpr:
+		if literal.Operator == "-" {
+			value, ok := integerLiteralValue(literal.Operand)
+			if !ok || value == -1<<63 {
+				return 0, false
+			}
+			return -value, true
+		}
 	}
+	return 0, false
+}
+
+func emptyArrayComparedVariable(left, right ast.Node) (string, bool) {
+	if variable, ok := left.(*ast.VariableNode); ok {
+		if array, ok := right.(*ast.ArrayNode); ok && array != nil && len(array.Elements) == 0 {
+			return variable.Name, true
+		}
+	}
+	if variable, ok := right.(*ast.VariableNode); ok {
+		if array, ok := left.(*ast.ArrayNode); ok && array != nil && len(array.Elements) == 0 {
+			return variable.Name, true
+		}
+	}
+	return "", false
 }
 
 func emptyStringComparedVariable(left, right ast.Node) (string, bool) {
@@ -971,7 +1090,7 @@ func variableWithoutBuiltin(scope *functionScope, variableName, builtin string) 
 	return refined, true
 }
 
-func builtinTypePredicate(call *ast.FunctionCallNode) (string, Type, bool) {
+func builtinTypePredicate(call *ast.FunctionCallNode, scope *functionScope) (string, Type, bool) {
 	if call == nil || len(call.Args) != 1 {
 		return "", EmptyType(), false
 	}
@@ -1002,6 +1121,15 @@ func builtinTypePredicate(call *ast.FunctionCallNode) (string, Type, bool) {
 		return variable.Name, ParseType("bool"), true
 	case "is_array":
 		return variable.Name, ParseType("array"), true
+	case "is_resource":
+		return variable.Name, ParseType("resource"), true
+	case "is_numeric":
+		if scope != nil {
+			if current, found := scope.variable(variable.Name); found && typeCanNarrowToNumericString(current) {
+				return variable.Name, ParseType("numeric-string"), true
+			}
+		}
+		return variable.Name, ParseType("int|float|numeric-string"), true
 	case "is_object":
 		return variable.Name, ParseType("object"), true
 	case "is_null":
@@ -1009,6 +1137,24 @@ func builtinTypePredicate(call *ast.FunctionCallNode) (string, Type, bool) {
 	}
 
 	return "", EmptyType(), false
+}
+
+func typeCanNarrowToNumericString(typ Type) bool {
+	if len(typ.atoms) == 0 {
+		return false
+	}
+	hasString := false
+	for _, atom := range typ.atoms {
+		if atom.key == "null" || atom.key == "false" {
+			continue
+		}
+		if atom.key == "string" || isStringRefinement(atom.key) || strings.HasPrefix(atom.key, "string-literal:") {
+			hasString = true
+			continue
+		}
+		return false
+	}
+	return hasString
 }
 
 func typeFromInstanceofTarget(node ast.Node, scope *functionScope) Type {
@@ -1027,7 +1173,7 @@ func finishIfNodeScope(scope *functionScope, node *ast.IfNode, thenScope *functi
 	applyTerminatingIfFalseScope(scope, node, ctx)
 	applyIfElseJoinScope(scope, node, thenScope, elseifScopes, elseScope, ctx)
 	applyLazyInitPropertyScope(scope, node, ctx)
-	applyFalsyInitVariableScope(scope, node, thenScope)
+	applyFalsyInitVariableScope(scope, node, thenScope, ctx)
 }
 
 func applyIfElseJoinScope(scope *functionScope, node *ast.IfNode, thenScope *functionScope, elseifScopes []*functionScope, elseScope *functionScope, ctx *AnalysisContext) {
@@ -1035,7 +1181,14 @@ func applyIfElseJoinScope(scope *functionScope, node *ast.IfNode, thenScope *fun
 		return
 	}
 	if node.Else == nil && len(node.ElseIfs) == 0 {
-		if !statementsExitCurrentBlock(node.Body) && len(variablesWithoutFinalInstanceofWhenFalse(node.Condition, scope, ctx)) > 0 {
+		falsePathAssignment := false
+		for name := range variablesTypedWhenFalse(node.Condition, scope, ctx) {
+			if bodyAssignsVariable(node.Body, name) {
+				falsePathAssignment = true
+				break
+			}
+		}
+		if !statementsExitCurrentBlockWithContext(node.Body, scope, ctx) && (len(variablesWithoutFinalInstanceofWhenFalse(node.Condition, scope, ctx)) > 0 || hasNegatedInstanceofOnConjunctiveTruePath(node.Condition) || falsePathAssignment) {
 			falseScope := scopeForConditionFalse(scope, node.Condition, ctx)
 			joinFallthroughVariableTypes(scope, []*functionScope{thenScope, falseScope})
 		}
@@ -1045,18 +1198,18 @@ func applyIfElseJoinScope(scope *functionScope, node *ast.IfNode, thenScope *fun
 		return
 	}
 	var fallthroughs []*functionScope
-	if !statementsTerminate(node.Body) {
+	if !statementsTerminateWithContext(node.Body, scope, ctx) {
 		fallthroughs = append(fallthroughs, thenScope)
 	}
 	for i, elseif := range node.ElseIfs {
-		if statementsTerminate(elseif.Body) {
+		if statementsTerminateWithContext(elseif.Body, scope, ctx) {
 			continue
 		}
 		if i < len(elseifScopes) {
 			fallthroughs = append(fallthroughs, elseifScopes[i])
 		}
 	}
-	if !statementsTerminate(node.Else.Body) {
+	if !statementsTerminateWithContext(node.Else.Body, scope, ctx) {
 		fallthroughs = append(fallthroughs, elseScope)
 	}
 	joinFallthroughVariableTypes(scope, fallthroughs)
@@ -1164,7 +1317,7 @@ func applyTerminatingIfFalseScope(scope *functionScope, node *ast.IfNode, ctx *A
 	if scope == nil || node == nil || node.Else != nil || len(node.ElseIfs) > 0 {
 		return
 	}
-	if !statementsExitCurrentBlock(node.Body) {
+	if !statementsExitCurrentBlockWithContext(node.Body, scope, ctx) {
 		return
 	}
 	applyThisPropertyConditionScope(scope, node.Condition, false, ctx)
@@ -1193,7 +1346,7 @@ func applyTerminatingIfFalseScope(scope *functionScope, node *ast.IfNode, ctx *A
 			scope.setVariable(cond.variable, refineTypeByInstanceof(current, typ))
 		}
 	}
-	for variableName, typ := range variablesTypedWhenFalse(node.Condition, scope) {
+	for variableName, typ := range variablesTypedWhenFalse(node.Condition, scope, ctx) {
 		if !typ.IsEmpty() {
 			scope.setVariable(variableName, typ)
 		}
@@ -1261,7 +1414,7 @@ func variablesNonNullWhenFalse(node ast.Node) []string {
 			}
 		}
 	case *ast.FunctionCallNode:
-		if variableName, typ, ok := builtinTypePredicate(n); ok && typ.hasBuiltin("null") {
+		if variableName, typ, ok := builtinTypePredicate(n, nil); ok && typ.hasBuiltin("null") {
 			return []string{variableName}
 		}
 	}
@@ -1426,7 +1579,7 @@ func isFalseLiteral(node ast.Node) bool {
 // `if ($x === false) { $x = ...; }` without an else. After the block both
 // the assigned then-branch and the implicit else (condition false) are
 // joined, so later statements see the filled-in type.
-func applyFalsyInitVariableScope(scope *functionScope, node *ast.IfNode, thenScope *functionScope) {
+func applyFalsyInitVariableScope(scope *functionScope, node *ast.IfNode, thenScope *functionScope, ctx *AnalysisContext) {
 	if scope == nil || node == nil || thenScope == nil || node.Else != nil || len(node.ElseIfs) > 0 {
 		return
 	}
@@ -1438,7 +1591,7 @@ func applyFalsyInitVariableScope(scope *functionScope, node *ast.IfNode, thenSco
 		return
 	}
 	thenType, thenOK := thenScope.variable(name)
-	elseTypes := variablesTypedWhenFalse(node.Condition, scope)
+	elseTypes := variablesTypedWhenFalse(node.Condition, scope, ctx)
 	elseType, elseOK := elseTypes[name]
 	if !elseOK {
 		elseType, elseOK = nonNullVariableType(scope, name)
@@ -1793,6 +1946,7 @@ func isBoundedIntegerInterval(typ Type) bool {
 }
 
 func argumentExpectedTypeAcceptsActual(expected, actual Type, scope *functionScope, ctx *AnalysisContext) bool {
+	actual = applyScopeTemplateBounds(actual, scope)
 	if actual.hasBuiltin("string") && len(actual.atoms) == 1 {
 		for _, atom := range expected.atoms {
 			if strings.HasPrefix(atom.key, "string-literal:") {
@@ -2009,6 +2163,9 @@ func checkResolvedCallArgTypes(target string, method ResolvedMethod, args []ast.
 
 func inferArgumentTypeWithFacts(filename string, expr ast.Node, scope *functionScope, ctx *AnalysisContext) Type {
 	actual := inferTypeWithFacts(filename, expr, scope, ctx)
+	if enumValue := inferBackedEnumCaseValueType(expr, scope, ctx); !enumValue.IsEmpty() {
+		return enumValue
+	}
 	// Generated expression facts are collected before this call-site walk and
 	// can miss branch-local narrowing or assignment joins. The live function
 	// scope is authoritative for a local variable at the point of the call.
@@ -2116,11 +2273,14 @@ func inferredArrayLiteralEmptiness(node *ast.ArrayNode) (Type, bool) {
 	}
 	for _, element := range node.Elements {
 		item, ok := element.(*ast.ArrayItemNode)
-		if !ok || item == nil || item.Unpack {
+		if !ok || item == nil {
 			return Type{}, false
 		}
+		if !item.Unpack {
+			return ParseType("non-empty-array"), true
+		}
 	}
-	return ParseType("non-empty-array"), true
+	return Type{}, false
 }
 
 func isPlainStringType(typ Type) bool {

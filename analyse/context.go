@@ -200,6 +200,7 @@ type ResolvedProperty struct {
 	DeclaringClass     string
 	Name               string
 	Type               string
+	ValueType          string
 	CallableReturnType string
 	Visibility         string
 	IsStatic           bool
@@ -212,6 +213,7 @@ type ResolvedConstant struct {
 	Name           string
 	DeclaringClass string
 	Type           string
+	ValueType      string
 	Visibility     string
 	Final          bool
 }

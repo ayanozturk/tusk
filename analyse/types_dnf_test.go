@@ -54,3 +54,20 @@ func TestParseTypeDNFKeepsExistingFlatAcceptanceBehavior(t *testing.T) {
 		t.Fatal("DNF metadata must not change existing flat acceptance semantics")
 	}
 }
+
+func TestNumericStringSatisfiesNonEmptyString(t *testing.T) {
+	if !ParseType("non-empty-string").Accepts(ParseType("numeric-string")) {
+		t.Fatal("numeric-string is necessarily non-empty and must satisfy non-empty-string")
+	}
+	if ParseType("non-empty-string").Accepts(ParseType("string")) {
+		t.Fatal("general string must not satisfy non-empty-string")
+	}
+}
+
+func TestWithoutExactClassAlternative(t *testing.T) {
+	current := ParseType("Constraint|string|null")
+	refined := current.withoutExactClassAlternative("Constraint")
+	if refined.Accepts(ParseType("Constraint")) || !ParseType("string|null").Accepts(refined) {
+		t.Fatalf("withoutExactClassAlternative did not remove only the exact class branch: current=%s refined=%s", current, refined)
+	}
+}

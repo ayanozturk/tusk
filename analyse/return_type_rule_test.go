@@ -1,6 +1,7 @@
 package analyse
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/ayanozturk/tusk/ast"
@@ -593,6 +594,51 @@ function answer(): string {
 	snapshotCtx.Content = []byte(src)
 	if issues := rule.CheckIssues(nodes, filename, snapshotCtx); hasReturnTypeIssue(issues) {
 		t.Fatalf("expected shared inferred-type fact to satisfy declared return type, got %#v", issues)
+	}
+}
+
+func TestReturnTypeRefinesBroadSemanticFactWithLiveScope(t *testing.T) {
+	const filename = "src/RefinedReturn.php"
+	const source = `<?php
+/** @return non-empty-string */
+function withPrefix(string $suffix): string {
+    $result = 'prefix:';
+    $result .= $suffix;
+    return $result;
+}
+/** @return non-empty-string */
+function invalidEmpty(): string {
+    $result = '';
+    return $result;
+}
+`
+	nodes := parsePHPForLevel0(t, source)
+	var facts []SemanticFact
+	for _, node := range nodes {
+		fn, ok := node.(*ast.FunctionNode)
+		if !ok {
+			continue
+		}
+		for _, statement := range fn.Body {
+			if ret, ok := statement.(*ast.ReturnNode); ok {
+				facts = append(facts, SemanticFact{Key: inferredTypeFactKey(filename, ret.Expr), Type: "string"})
+			}
+		}
+	}
+	reader := &countingFactReader{facts: make(map[SemanticFactKey]SemanticFact, len(facts))}
+	for _, fact := range facts {
+		reader.facts[fact.Key] = fact
+	}
+	ctx := &AnalysisContext{Facts: reader, Content: []byte(source)}
+	issues := (&ReturnTypeRule{}).CheckIssues(nodes, filename, ctx)
+	var returnIssues []AnalysisIssue
+	for _, issue := range issues {
+		if issue.Code == "A.RETURN.TYPE" {
+			returnIssues = append(returnIssues, issue)
+		}
+	}
+	if len(returnIssues) != 1 || !strings.Contains(returnIssues[0].Message, "invalidEmpty") {
+		t.Fatalf("expected live non-empty refinement to override a broad fact while the empty control fails, got %#v", returnIssues)
 	}
 }
 

@@ -33,12 +33,19 @@ func foreachVariableName(node ast.Node) string {
 func foreachIterableTypes(expr ast.Node, scope *functionScope, ctx *AnalysisContext, filename string) (Type, Type) {
 	if variable, ok := expr.(*ast.VariableNode); ok && scope != nil {
 		if inst, found := scope.genericContext[variable.Name]; found {
-			if keyType, valueType, ok := iterableTypesFromGeneric(inst); ok {
+			if keyType, valueType, ok := iterableTypesFromGenericInScope(inst, scope); ok {
 				return keyType, valueType
 			}
 		}
 	}
 	inferred := inferTypeWithFacts(filename, expr, scope, ctx)
+	if scope != nil {
+		if inst, ok := genericInstanceFromType(inferred); ok {
+			if keyType, valueType, ok := iterableTypesFromGenericInScope(inst, scope); ok {
+				return keyType, valueType
+			}
+		}
+	}
 	if keyType, valueType, ok := iterableTypesFromInferred(inferred); ok {
 		return keyType, valueType
 	}
@@ -46,6 +53,22 @@ func foreachIterableTypes(expr ast.Node, scope *functionScope, ctx *AnalysisCont
 		return MixedType(), MixedType()
 	}
 	return EmptyType(), EmptyType()
+}
+
+func iterableTypesFromGenericInScope(inst GenericInstance, scope *functionScope) (Type, Type, bool) {
+	if scope == nil || scope.functionScopeContext == nil {
+		return iterableTypesFromGeneric(inst)
+	}
+	templates := make(map[string]struct{}, len(scope.templateBounds))
+	for name := range scope.templateBounds {
+		templates[name] = struct{}{}
+	}
+	normalized := inst
+	normalized.TypeArguments = make([]string, len(inst.TypeArguments))
+	for i, argument := range inst.TypeArguments {
+		normalized.TypeArguments[i] = normalizeTemplateAwareType(argument, scope.typeCtx, templates)
+	}
+	return iterableTypesFromGeneric(normalized)
 }
 
 func genericInstanceFromType(typ Type) (GenericInstance, bool) {

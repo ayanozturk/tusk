@@ -117,6 +117,7 @@ function run(): void {
     acceptNonEmpty('ready');
     acceptNonEmpty('');
 }
+
 /** @param array{label: 'ready', blank: ''} $data */
 function passShapeStrings(array $data): void {
     acceptNonEmpty($data['label']);
@@ -142,6 +143,168 @@ func filterNonEmptyArgTypeIssues(issues []AnalysisIssue) []AnalysisIssue {
 		}
 	}
 	return result
+}
+
+func TestArgumentTypeUsesRefinedPropertyPHPDoc(t *testing.T) {
+	const source = `<?php
+/** @param non-empty-string $value */
+function requireNonEmpty(string $value): void {}
+
+class Subscription {
+	/** @var non-empty-string */
+	private string $id = 'subscription';
+
+	public function cancel(): void {
+		requireNonEmpty($this->id);
+	}
+}
+
+function invalidControl(): void {
+	requireNonEmpty('');
+}
+`
+	issues := runAnalysisLevelOnFiles(t, map[string]string{"property-phpdoc.php": source}, 8)
+	var argumentIssues []AnalysisIssue
+	for _, issue := range issues {
+		if issue.Code == "A.ARG.TYPE" {
+			argumentIssues = append(argumentIssues, issue)
+		}
+	}
+	if len(argumentIssues) != 1 || !strings.Contains(argumentIssues[0].Message, "requireNonEmpty") {
+		t.Fatalf("expected only the empty-string control to fail, got %#v", argumentIssues)
+	}
+}
+
+func TestArgumentTypeUsesClassTemplateBoundAfterLocalAssertion(t *testing.T) {
+	const source = `<?php
+namespace App;
+/** @template Tk of array-key */
+final class Map {
+    public function add(int|string $key): void {}
+    public function removeAny(mixed $offset): void {
+        if (!is_int($offset) && !is_string($offset)) { throw new \InvalidArgumentException(); }
+        /** @var Tk $offset */
+        $this->add($offset);
+    }
+    public function invalid(): void { $this->add(new \stdClass()); }
+}
+
+`
+	issues := runAnalysisLevelOnFiles(t, map[string]string{"template-bound.php": source}, 8)
+	var argumentIssues []AnalysisIssue
+	for _, issue := range issues {
+		if issue.Code == "A.ARG.TYPE" {
+			argumentIssues = append(argumentIssues, issue)
+		}
+	}
+	if len(argumentIssues) != 1 {
+		t.Fatalf("expected class template bound to accept array-key assertion and reject object control, got %#v", argumentIssues)
+	}
+}
+
+func TestPromotedPropertyUsesRefinedPHPDocType(t *testing.T) {
+	const source = `<?php
+/** @param positive-int $value */
+function requirePositive(int $value): void {}
+
+class Limit {
+	/** @param positive-int $limit */
+	public function __construct(private readonly int $limit) {}
+
+	/** @return positive-int */
+	public function value(): int {
+		requirePositive($this->limit);
+		return $this->limit;
+	}
+}
+
+function invalidControl(): void {
+	requirePositive(0);
+}
+`
+	issues := runAnalysisLevelOnFiles(t, map[string]string{"promoted-property-phpdoc.php": source}, 8)
+	var argumentIssues, returnIssues []AnalysisIssue
+	for _, issue := range issues {
+		switch issue.Code {
+		case "A.ARG.TYPE":
+			argumentIssues = append(argumentIssues, issue)
+		case "A.RETURN.TYPE":
+			returnIssues = append(returnIssues, issue)
+		}
+	}
+	if len(argumentIssues) != 1 || len(returnIssues) != 0 {
+		t.Fatalf("expected only the zero argument control to fail, got arguments %#v and returns %#v", argumentIssues, returnIssues)
+	}
+}
+
+func TestInheritedExceptionConstructorUsesOverriddenSignature(t *testing.T) {
+	files := map[string]string{
+		"Psl/Exception/RuntimeException.php": `<?php
+namespace Psl\Exception;
+class RuntimeException extends \RuntimeException {}
+`,
+		"Psl/MIME/Exception/RuntimeException.php": `<?php
+namespace Psl\MIME\Exception;
+use Psl\Exception;
+use Throwable;
+interface ExceptionInterface {}
+class RuntimeException extends Exception\RuntimeException implements ExceptionInterface {
+	final protected function __construct(string $message, null|Throwable $previous = null) {
+		parent::__construct($message, 0, $previous);
+	}
+}
+`,
+		"Psl/MIME/Exception/EncodingException.php": `<?php
+namespace Psl\MIME\Exception;
+use Throwable;
+final class EncodingException extends RuntimeException {
+	public static function wrap(Throwable $previous): self {
+		return new self('failed', $previous);
+	}
+
+	public static function invalidControl(): self {
+		return new self('failed', 42);
+	}
+}
+`,
+	}
+	issues := runAnalysisLevelOnFiles(t, files, 8)
+	var argumentIssues []AnalysisIssue
+	for _, issue := range issues {
+		if issue.Code == "A.ARG.TYPE" {
+			argumentIssues = append(argumentIssues, issue)
+		}
+	}
+	if len(argumentIssues) != 1 || !strings.Contains(argumentIssues[0].Message, "EncodingException constructor argument 2") {
+		t.Fatalf("expected only the invalid previous-exception control to fail, got %#v", argumentIssues)
+	}
+}
+
+func TestBackedEnumCaseValueRefinesArgumentType(t *testing.T) {
+	const source = `<?php
+enum FrameType: int {
+	case Data = 0;
+	case Invalid = 256;
+}
+
+/** @param int<0, 255> $type */
+function acceptFrameType(int $type): void {}
+
+function run(): void {
+	acceptFrameType(FrameType::Data->value);
+	acceptFrameType(FrameType::Invalid->value);
+}
+`
+	issues := runAnalysisLevelOnFiles(t, map[string]string{"enum-case-value.php": source}, 8)
+	var argumentIssues []AnalysisIssue
+	for _, issue := range issues {
+		if issue.Code == "A.ARG.TYPE" {
+			argumentIssues = append(argumentIssues, issue)
+		}
+	}
+	if len(argumentIssues) != 1 || !strings.Contains(argumentIssues[0].Message, "acceptFrameType") {
+		t.Fatalf("expected only the out-of-range enum value to fail, got %#v", argumentIssues)
+	}
 }
 
 func TestArgumentTypesEnforceNonEmptyArrayBoundaries(t *testing.T) {
@@ -2885,5 +3048,295 @@ function equalityElse(int $value): void {
 	}
 	if len(mismatches) != 1 {
 		t.Fatalf("expected the unrefined argument to fail while both interior-exclusion paths pass, got %#v", issues)
+	}
+}
+
+func TestMethodScopeUsesRefinedNullablePHPDocParameter(t *testing.T) {
+	const source = `<?php
+interface ByteReader {
+    /** @param ?positive-int $maxBytes */
+    public function read(null|int $maxBytes = null): string;
+}
+final class ReaderAdapter {
+    public function __construct(private ByteReader $reader) {}
+    /** @param ?positive-int $maxBytes */
+    public function read(null|int $maxBytes = null): string {
+        return $this->reader->read($maxBytes);
+    }
+    public function invalid(null|int $maxBytes): string {
+        return $this->reader->read($maxBytes);
+    }
+}
+`
+	issues := runAnalysisLevelOnFiles(t, map[string]string{"method-phpdoc-param.php": source}, 8)
+	var argumentIssues []AnalysisIssue
+	for _, issue := range issues {
+		if issue.Code == "A.ARG.TYPE" {
+			argumentIssues = append(argumentIssues, issue)
+		}
+	}
+	if len(argumentIssues) != 1 || argumentIssues[0].Line != 13 {
+		t.Fatalf("expected only the unrefined method parameter at line 13 to fail, got %#v", argumentIssues)
+	}
+}
+
+func TestIntersectionParameterSatisfiesInterfaceArgument(t *testing.T) {
+	const source = `<?php
+interface Readable {}
+interface Writable {}
+final class Reader {
+    public function __construct(Readable $handle) {}
+}
+final class Connection {
+    public function __construct(private Readable&Writable $handle) {}
+    public function reader(): Reader { return new Reader($this->handle); }
+}
+final class InvalidConnection {
+    public function __construct(private Writable $handle) {}
+    public function reader(): Reader { return new Reader($this->handle); }
+}
+`
+	issues := runAnalysisLevelOnFiles(t, map[string]string{"intersection-argument.php": source}, 8)
+	var argumentIssues []AnalysisIssue
+	for _, issue := range issues {
+		if issue.Code == "A.ARG.TYPE" {
+			argumentIssues = append(argumentIssues, issue)
+		}
+	}
+	if len(argumentIssues) != 1 || argumentIssues[0].Line != 13 {
+		t.Fatalf("expected only the non-intersection control on line 13 to fail, got %#v", argumentIssues)
+	}
+}
+
+func TestInheritedPHPDocParameterRefinesImplementationScope(t *testing.T) {
+	const source = `<?php
+interface ReaderContract {
+    /** @param int<1, max>|null $maxBytes */
+    public function read(null|int $maxBytes = null): void;
+}
+/** @param int<1, max>|null $maxBytes */
+function consumeBytes(null|int $maxBytes): void {}
+final class ReaderImplementation implements ReaderContract {
+    public function read(null|int $maxBytes = null): void { consumeBytes($maxBytes); }
+}
+function invalidControl(null|int $maxBytes): void { consumeBytes($maxBytes); }
+`
+	issues := runAnalysisLevelOnFiles(t, map[string]string{"inherited-param-phpdoc.php": source}, 8)
+	var argumentIssues []AnalysisIssue
+	for _, issue := range issues {
+		if issue.Code == "A.ARG.TYPE" {
+			argumentIssues = append(argumentIssues, issue)
+		}
+	}
+	if len(argumentIssues) != 1 || argumentIssues[0].Line != 11 {
+		t.Fatalf("expected only the unrefined control on line 11 to fail, got %#v", argumentIssues)
+	}
+}
+
+func TestInheritedPHPDocParameterKeepsResolvedNamespace(t *testing.T) {
+	const source = `<?php
+namespace Vendor\Semver;
+interface ConstraintInterface {}
+namespace Contract;
+use Vendor\Semver\ConstraintInterface;
+interface Repository {
+    /** @param ConstraintInterface|string|null $constraint */
+    public function lookup($constraint): void;
+}
+namespace Composer\Repository;
+use Vendor\Semver\ConstraintInterface;
+final class LocalRepository implements \Contract\Repository {
+    public function lookup($constraint): void { $this->filter($constraint); }
+    private function filter(ConstraintInterface|string|null $constraint): void {}
+    public function invalid(int $constraint): void { $this->filter($constraint); }
+}
+`
+	issues := runAnalysisLevelOnFiles(t, map[string]string{"inherited-param-namespace.php": source}, 8)
+	var argumentIssues []AnalysisIssue
+	for _, issue := range issues {
+		if issue.Code == "A.ARG.TYPE" {
+			argumentIssues = append(argumentIssues, issue)
+		}
+	}
+	if len(argumentIssues) != 1 || argumentIssues[0].Line != 15 {
+		t.Fatalf("expected inherited FQN parameter to remain valid and int control to fail at line 15, got %#v", argumentIssues)
+	}
+}
+
+func TestNegatedInstanceofAssignmentNarrowsUnionAcrossJoin(t *testing.T) {
+	const source = `<?php
+interface Constraint {}
+final class ConstraintParser {
+    public function parse(mixed $constraint): Constraint { return new class implements Constraint {}; }
+}
+final class Repository {
+    public function __construct(private ConstraintParser $parser) {}
+    private function filter(Constraint|null $constraint): void {}
+    public function lookup(Constraint|string|null $constraint): void {
+        if ($constraint !== null && !$constraint instanceof Constraint) {
+            $constraint = $this->parser->parse($constraint);
+        }
+        $this->filter($constraint);
+    }
+    public function invalid(int $constraint): void { $this->filter($constraint); }
+}
+`
+	issues := runAnalysisLevelOnFiles(t, map[string]string{"negated-instanceof-assignment.php": source}, 8)
+	var argumentIssues []AnalysisIssue
+	for _, issue := range issues {
+		if issue.Code == "A.ARG.TYPE" {
+			argumentIssues = append(argumentIssues, issue)
+		}
+	}
+	if len(argumentIssues) != 1 || argumentIssues[0].Line != 15 {
+		t.Fatalf("expected guarded union to narrow and int control to fail at line 15, got %#v", argumentIssues)
+	}
+}
+
+func TestResourcePredicateNarrowsUnionForArguments(t *testing.T) {
+	const source = `<?php
+/** @param resource $resource */
+function needsResource(mixed $resource): void {}
+/** @param resource|object|null $resource */
+function guarded(mixed $resource): void {
+    if (!is_resource($resource)) { throw new RuntimeException(); }
+    needsResource($resource);
+}
+/** @param resource|object|null $resource */
+function invalidControl(mixed $resource): void { needsResource($resource); }
+`
+	issues := runAnalysisLevelOnFiles(t, map[string]string{"resource-predicate.php": source}, 8)
+	var argumentIssues []AnalysisIssue
+	for _, issue := range issues {
+		if issue.Code == "A.ARG.TYPE" {
+			argumentIssues = append(argumentIssues, issue)
+		}
+	}
+	if len(argumentIssues) != 1 || argumentIssues[0].Line != 10 {
+		t.Fatalf("expected resource guard to pass and unguarded control to fail, got %#v", argumentIssues)
+	}
+}
+
+func TestArgumentTypeNarrowsFalseIsStringPathAfterReplacement(t *testing.T) {
+	const source = `<?php
+interface ReadHandle {}
+final class MemoryHandle implements ReadHandle {}
+function consumeHandle(ReadHandle $handle): void {}
+
+function parse(string|ReadHandle $input): void
+{
+    if (is_string($input)) {
+        $input = new MemoryHandle();
+    }
+    consumeHandle($input);
+}
+
+function control(string|ReadHandle $input): void
+{
+    consumeHandle($input);
+}
+`
+	issues := runAnalysisLevelOnFiles(t, map[string]string{"test.php": source}, 8)
+	var argIssues []AnalysisIssue
+	for _, issue := range issues {
+		if issue.Code == "A.ARG.TYPE" {
+			argIssues = append(argIssues, issue)
+		}
+	}
+	if len(argIssues) != 1 || argIssues[0].Line != 16 {
+		t.Fatalf("expected only the unguarded union control to report, got %#v", argIssues)
+	}
+}
+
+func TestArgumentTypePreservesLiteralRangeAcrossTernary(t *testing.T) {
+	const source = `<?php
+/** @param int<0, 255> $value */
+function requireByte(int $value): void {}
+function run(bool $flag): void
+{
+    requireByte($flag ? 4 : 0);
+    requireByte($flag ? 256 : 0);
+}
+`
+	issues := runAnalysisLevelOnFiles(t, map[string]string{"test.php": source}, 8)
+	var argIssues []AnalysisIssue
+	for _, issue := range issues {
+		if issue.Code == "A.ARG.TYPE" {
+			argIssues = append(argIssues, issue)
+		}
+	}
+	if len(argIssues) != 1 || argIssues[0].Line != 7 {
+		t.Fatalf("expected only the out-of-range ternary arm to fail, got %#v", argIssues)
+	}
+}
+
+func TestArgumentTypeAppliesReturnVarDocBeforeNestedCalls(t *testing.T) {
+	const source = `<?php
+final class Target
+{
+    /** @param non-empty-string|null $scheme */
+    public function __construct(public string|null $scheme) {}
+}
+function annotated(string|null $scheme): Target
+{
+    /** @var non-empty-string|null $scheme */
+    return new Target($scheme);
+}
+function control(string|null $scheme): Target
+{
+    return new Target($scheme);
+}
+`
+	issues := runAnalysisLevelOnFiles(t, map[string]string{"test.php": source}, 8)
+	var argIssues []AnalysisIssue
+	for _, issue := range issues {
+		if issue.Code == "A.ARG.TYPE" {
+			argIssues = append(argIssues, issue)
+		}
+	}
+	if len(argIssues) != 1 || argIssues[0].Line != 14 {
+		t.Fatalf("expected only the unannotated control to report, got %#v", argIssues)
+	}
+}
+
+func TestReturnVarDocPreservesBareClassTemplateForNestedCalls(t *testing.T) {
+	const source = `<?php
+function requireArrayKey(int|string $key): void {}
+/** @template T of array-key */
+class Indexed
+{
+    /**
+     * @param T $key
+     * @return T
+     */
+    private function at(mixed $key): mixed { return $key; }
+
+    /** @return T */
+    public function read(mixed $offset): mixed
+    {
+        if (!is_int($offset) && !is_string($offset)) { throw new InvalidArgumentException(); }
+        /** @var T $offset */
+        requireArrayKey($offset);
+        return $this->at($offset);
+    }
+}
+function invalid(): void { requireArrayKey(new stdClass()); }
+`
+	issues := runAnalysisLevelOnFiles(t, map[string]string{"template-return-var.php": source}, 8)
+	var argumentIssues []AnalysisIssue
+	var returnIssues []AnalysisIssue
+	for _, issue := range issues {
+		switch issue.Code {
+		case "A.ARG.TYPE":
+			argumentIssues = append(argumentIssues, issue)
+		case "A.RETURN.TYPE":
+			returnIssues = append(returnIssues, issue)
+		}
+	}
+	if len(argumentIssues) != 1 || argumentIssues[0].Line != 21 {
+		t.Fatalf("expected only the object argument control to fail, got %#v", argumentIssues)
+	}
+	if len(returnIssues) != 0 {
+		t.Fatalf("expected class-template return assertion to remain T, got %#v", returnIssues)
 	}
 }
