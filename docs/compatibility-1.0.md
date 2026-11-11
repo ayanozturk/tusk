@@ -9,7 +9,7 @@ release checklist.
 ## Go toolchain and build targets
 
 - **Minimum Go version:** Go 1.26, matching the `go` directive in `go.mod`.
-  There is no declared maximum Go version. Builds use the patched Go 1.26.10
+  There is no declared maximum Go version. Builds use the patched Go 1.26.11
   toolchain or a later compatible toolchain.
 - **Operating systems:** Linux, macOS, and Windows.
 - **Architectures:** `amd64` and `arm64` on each supported operating system.
